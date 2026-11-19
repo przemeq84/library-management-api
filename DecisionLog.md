@@ -95,3 +95,35 @@ serializing concurrent requests to avoid race conditions.
 This is operation that operates only on `Borrowing` object, so it naturally lands there.
 Each operation is a few lines touching one aggregate, so a service layer would add indirection without hiding
 complexity. It can be easily extracted to a service if needed in the future.
+
+## Plain Rails controllers instead of Grape
+
+*Chosen*: the API is built from plain `ActionController::API` controllers with Rails routing, strong parameters and
+Blueprinter serializers.
+
+*Alternatives considered*: Grape (optionally with grape-entity and grape-swagger).
+
+This is a simple internal API used by library staff, so it doesn't need Grape's versioning, parameter DSL or generated
+documentation, and plain controllers keep the stack conventional for any Rails developer. If API usage evolves (public
+clients, several versions), the endpoints can be migrated to Grape or a versioned namespace later.
+
+## Plain arrays for paginated lists
+
+*Chosen*: list endpoints return a bare JSON array, no envelope and no total count.
+
+*Alternatives considered*: a `{ data, meta }` envelope with `total_count` / `total_pages`; pagination headers (`Link`,
+`X-Total-Count`).
+
+This is an internal API for library staff, and no client needs totals yet; skipping them also avoids a `COUNT(*)` per
+request. Adding an envelope or headers later is a small, coordinated change with the known clients.
+
+## Unknown request attributes are ignored
+
+*Chosen*: strong parameters (`params.expect`) permit a fixed attribute list per resource; any other attribute in the
+body is dropped without an error. Missing or wrongly shaped resource keys still get a 400.
+
+*Alternatives considered*: `action_on_unpermitted_parameters = :raise`, answering 400 that names the unknown attribute.
+
+Ignoring extra attributes lets clients and server evolve independently: a client can start sending a field before the
+server knows it, and a removed field doesn't break older clients. Only permitted attributes are assigned, so clients
+still can't set fields like `discarded_at`.

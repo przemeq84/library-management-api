@@ -106,13 +106,13 @@ RSpec.describe Reader do
     end
   end
 
-  describe "#discard" do
-    it "is refused while the reader has an active borrowing" do
+  describe "#discard!" do
+    it "raises ReaderHasActiveBorrowings while the reader has an active borrowing" do
       reader = create(:reader)
       Borrowing.borrow!(book: create(:book), reader:)
 
-      expect(reader.discard).to be(false)
-      expect(reader.errors[:base]).to include("Reader has borrowed books that are not returned")
+      expect { reader.discard! }
+        .to raise_error(Borrowing::Errors::ReaderHasActiveBorrowings, "Reader has borrowed books that are not returned")
       expect(reader.reload).to be_kept
     end
 
@@ -122,7 +122,8 @@ RSpec.describe Reader do
       Borrowing.borrow!(book:, reader:)
       Borrowing.return!(book:, reader:)
 
-      expect(reader.reload.discard).to be(true)
+      reader.reload.discard!
+
       expect(reader).to be_discarded
     end
   end

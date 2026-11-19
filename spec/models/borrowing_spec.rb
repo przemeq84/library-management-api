@@ -44,7 +44,15 @@ RSpec.describe Borrowing do
     it "raises AlreadyBorrowed when the book is already borrowed" do
       described_class.borrow!(book:, reader:)
 
-      expect { described_class.borrow!(book:, reader: create(:reader)) }.to raise_error(Borrowing::AlreadyBorrowed)
+      expect { described_class.borrow!(book:, reader: create(:reader)) }.to raise_error(Borrowing::Errors::AlreadyBorrowed)
+    end
+
+    it "raises AlreadyBorrowed when a concurrent borrowing wins the active-borrowing unique index" do
+      create(:borrowing, book:)
+      # Simulate a concurrent request that passed the availability check before the other insert committed.
+      allow_any_instance_of(Book).to receive(:borrowed?).and_return(false)
+
+      expect { described_class.borrow!(book:, reader:) }.to raise_error(Borrowing::Errors::AlreadyBorrowed)
     end
 
     it "raises RecordNotFound for a discarded book" do
@@ -83,14 +91,14 @@ RSpec.describe Borrowing do
     end
 
     it "raises NotBorrowed when the book is available" do
-      expect { described_class.return!(book:, reader:) }.to raise_error(Borrowing::NotBorrowed, "Book is not borrowed")
+      expect { described_class.return!(book:, reader:) }.to raise_error(Borrowing::Errors::NotBorrowed, "Book is not borrowed")
     end
 
     it "raises NotBorrowed when the book is borrowed by another reader" do
       borrowing = described_class.borrow!(book:, reader:)
 
       expect { described_class.return!(book:, reader: create(:reader)) }
-        .to raise_error(Borrowing::NotBorrowed, "Book borrowed by another reader")
+        .to raise_error(Borrowing::Errors::NotBorrowed, "Book borrowed by another reader")
       expect(borrowing.reload).to be_active
     end
 

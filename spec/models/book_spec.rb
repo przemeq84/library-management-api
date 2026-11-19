@@ -97,13 +97,12 @@ RSpec.describe Book do
     end
   end
 
-  describe "#discard" do
-    it "is refused while the book is borrowed" do
+  describe "#discard!" do
+    it "raises BookStillBorrowed while the book is borrowed" do
       book = create(:book)
       Borrowing.borrow!(book:, reader: create(:reader))
 
-      expect(book.discard).to be(false)
-      expect(book.errors[:base]).to include("Book is currently borrowed")
+      expect { book.discard! }.to raise_error(Borrowing::Errors::BookStillBorrowed, "Book is currently borrowed")
       expect(book.reload).to be_kept
     end
 
@@ -113,7 +112,8 @@ RSpec.describe Book do
       Borrowing.borrow!(book:, reader:)
       Borrowing.return!(book:, reader:)
 
-      expect(book.reload.discard).to be(true)
+      book.reload.discard!
+
       expect(book).to be_discarded
     end
   end

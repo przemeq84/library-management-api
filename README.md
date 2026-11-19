@@ -35,6 +35,24 @@ Every variable is optional. Locally they can be put in `.env`, which is loaded b
 | `SECRET_KEY_BASE` | none (production only)   | Generate with `bin/rails secret`                         |
 | `RAILS_LOG_LEVEL` | `info` (production only) | Log verbosity                                            |
 
+## API
+
+JSON over HTTP; send request bodies with `Content-Type: application/json`. There is no authentication.
+
+### Pagination
+
+List endpoints return a plain JSON array. Use `page` (positive integer, default `1`) and `per_page` (integer from `1`
+to `100`, default `25`). Invalid values, including empty ones, are rejected with 400 rather than adjusted.
+
+### Errors
+
+Errors share one shape. The HTTP status code is in the response status; `error.status` repeats it as Rails' status
+name. `details` holds per-field validation messages for 422 and is `null` otherwise:
+
+```json
+{ "error": { "status": "unprocessable_content", "message": "Email has already been taken", "details": { "email": ["has already been taken"] } } }
+```
+
 ## Running tests
 
 ```bash

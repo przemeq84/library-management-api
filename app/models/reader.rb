@@ -18,9 +18,6 @@ class Reader < ApplicationRecord
   private
 
   def ensure_no_active_borrowings
-    return unless borrowings.active.exists?
-
-    errors.add(:base, "Reader has borrowed books that are not returned")
-    throw :abort
+    raise Borrowing::Errors::ReaderHasActiveBorrowings if borrowings.active.exists?
   end
 end

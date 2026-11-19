@@ -22,9 +22,6 @@ class Book < ApplicationRecord
   private
 
   def ensure_not_borrowed
-    return unless borrowings.active.exists?
-
-    errors.add(:base, "Book is currently borrowed")
-    throw :abort
+    raise Borrowing::Errors::BookStillBorrowed if borrowings.active.exists?
   end
 end
