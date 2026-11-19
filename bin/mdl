@@ -1,0 +1,10 @@
+#!/usr/bin/env ruby
+require "rubygems"
+require "bundler/setup"
+
+# Lint the repository's Markdown files (see .mdlrc / .mdl_style.rb) unless paths are given.
+if ARGV.none? { |arg| !arg.start_with?("-") }
+  ARGV.concat(`git ls-files --cached --others --exclude-standard -- '*.md'`.split("\n"))
+end
+
+load Gem.bin_path("mdl", "mdl")

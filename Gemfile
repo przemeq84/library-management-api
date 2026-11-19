@@ -15,10 +15,8 @@ gem "puma", ">= 5.0"
 # Windows does not include zoneinfo files, so bundle the tzinfo-data gem
 gem "tzinfo-data", platforms: %i[ windows jruby ]
 
-# Use the database-backed adapters for Rails.cache, Active Job, and Action Cable
-gem "solid_cache"
+# Use the database-backed adapter for Active Job
 gem "solid_queue"
-gem "solid_cable"
 
 # Reduces boot times through caching; required in config/boot.rb
 gem "bootsnap", require: false
@@ -29,8 +27,14 @@ gem "kamal", require: false
 # Add HTTP asset caching/compression and X-Sendfile acceleration to Puma [https://github.com/basecamp/thruster/]
 gem "thruster", require: false
 
-# Use Active Storage variants [https://guides.rubyonrails.org/active_storage_overview.html#transforming-images]
-gem "image_processing", "~> 1.2"
+# Soft deletes [https://github.com/jhawthorn/discard]
+gem "discard"
+
+# JSON serialization [https://github.com/procore-oss/blueprinter]
+gem "blueprinter"
+
+# Pagination [https://github.com/mislav/will_paginate]
+gem "will_paginate"
 
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 # gem "rack-cors"
@@ -47,4 +51,19 @@ group :development, :test do
 
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
+
+  # Markdown lint, used only for the 120-character line length [https://github.com/markdownlint/markdownlint]
+  gem "mdl", require: false
+
+  # Load environment variables from .env [https://github.com/bkeepers/dotenv]
+  gem "dotenv-rails"
+
+  # Testing [https://github.com/rspec/rspec-rails]
+  gem "rspec-rails"
+  gem "factory_bot_rails"
+end
+
+group :test do
+  # Code coverage [https://github.com/simplecov-ruby/simplecov]
+  gem "simplecov", require: false
 end
