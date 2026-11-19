@@ -60,6 +60,6 @@ bin/ci
 
 ## Continuous integration
 
-GitHub Actions (`.github/workflows/ci.yml`) runs `bin/ci` on every pull request and on pushes to `main`. 
+GitHub Actions (`.github/workflows/ci.yml`) runs `bin/ci` on every pull request and on pushes to `main`.
 The checks are defined once in `config/ci.rb`, so CI runs exactly what `bin/ci` runs locally.
 The SimpleCov report is uploaded as the `coverage` artifact.

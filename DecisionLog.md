@@ -50,3 +50,48 @@ blocks and tables), run through `bin/mdl` locally and in CI.
 
 Markdown files follow markdownlint's default rules with 120-character lines, enforced in CI so all md files are
 consistent. Individual rules can be relaxed in `.mdl_style.rb` if they get in the way.
+
+## Six-digit numbers stored as strings
+
+*Chosen*: `books.serial_number` and `readers.card_number` are strings validated in the models with `/\A\d{6}\z/`.
+
+*Alternatives considered*: integer columns with a 100000..999999 range formatted with leading zeros on output
+
+These are identifiers printed on labels and cards, not quantities and is never used in arithmetic.
+It needs no database-level guard as all writes go through the models.
+
+## Soft delete with discard, without a default scope
+
+*Chosen*: books and readers include `Discard::Model` no default scope
+
+*Alternatives considered*: hard deletes, `paranoia` / `acts_as_paranoid`, `discard` with a `default_scope`
+
+Borrowing history must keep pointing at books and readers after they are removed from circulation. Explicit `.kept`
+makes it obvious where deleted records are excluded.
+
+## Optional reader email
+
+*Chosen*: `readers.email` is nullable. Readers without an email receive no reminders.
+
+*Alternatives considered*: a required email.
+
+Not every patron of an offline library has, or wants to share, an email address.
+
+## Borrowings as their own table
+
+*Chosen*: a separate `borrowings` table
+
+*Alternatives considered*: `borrowed_at` / `reader_id` columns on `books` with a separate history table.
+
+One table gives both the current state and the full history the book view needs. Allow to use the row lock for
+serializing concurrent requests to avoid race conditions.
+
+## Borrowing.borrow! and Borrowing.return! instead of a service class
+
+*Chosen*: borrow and return are class methods on `Borrowing`
+
+*Alternatives considered*: service objects (`BorrowBook`, `ReturnBook`); instance methods on `Book`.
+
+This is operation that operates only on `Borrowing` object, so it naturally lands there.
+Each operation is a few lines touching one aggregate, so a service layer would add indirection without hiding
+complexity. It can be easily extracted to a service if needed in the future.
