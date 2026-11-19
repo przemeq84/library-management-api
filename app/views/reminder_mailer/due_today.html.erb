@@ -1,0 +1,12 @@
+<p>Hello <%= @reader.name %>,</p>
+
+<p>
+  <strong><%= @book.title %></strong> by <%= @book.author %> (serial number <%= @book.serial_number %>)
+  <% if @overdue %>
+    was due back on <%= l(@borrowing.due_on, format: :long) %>. Please return it to the library as soon as possible.
+  <% else %>
+    is due back today, <%= l(@borrowing.due_on, format: :long) %>. Please return it to the library.
+  <% end %>
+</p>
+
+<p>Thank you,<br>Your library</p>

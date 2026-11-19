@@ -128,6 +128,20 @@ RSpec.describe Borrowing do
     end
   end
 
+  describe "#remindable?" do
+    it "is true for an active borrowing whose reader has an email" do
+      expect(build(:borrowing)).to be_remindable
+    end
+
+    it "is false once the book is returned" do
+      expect(build(:borrowing, :returned)).not_to be_remindable
+    end
+
+    it "is false when the reader has no email" do
+      expect(build(:borrowing, reader: build(:reader, email: nil))).not_to be_remindable
+    end
+  end
+
   describe "#active?" do
     it "is true until the book is returned" do
       expect(build(:borrowing)).to be_active

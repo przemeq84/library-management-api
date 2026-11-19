@@ -150,3 +150,31 @@ production (`action_on_strict_loading_violation = :log`).
 Staff think in terms of "borrow this book" and "return this book", and both operations start from the book in hand.
 API user does not need to care about borrowing id to handle return. Both return 200: they are action verbs on an
 existing book rather than REST creation of a new resource, so 201 doesn't apply.
+
+## Reminders from one recurring job instead of per-loan scheduled jobs
+
+*Chosen*: `SendDueDateRemindersJob` takes a reminder scope (`due_soon` or `due_today`) and is scheduled twice in
+`config/recurring.yml`, every day at 8am. It only finds borrowings that still need the reminder and enqueues one
+`SendReminderJob` per borrowing.
+
+*Alternatives considered*: enqueueing two delayed jobs (`set(wait_until:)`) when a book is borrowed; one job sending
+both reminders, one job to schedule all emails.
+
+Delayed per-loan jobs have to be cancelled or re-checked on return and lost jobs are hard to notice, while a daily query
+over `borrowings` always reflects the current data. Passing the scope keeps a single job with two independent schedules,
+so each reminder kind can be run, retried or rescheduled on its own.
+
+## At-most-once reminders with an atomic sent_at claim
+
+*Chosen*: `SendReminderJob` claims `due_soon_reminder_sent_at` / `due_today_reminder_sent_at` with one conditional
+`UPDATE` (`<column> IS NULL`, book not returned, reader has an email), and sends the email with `deliver_now` only if
+the claim succeeded. A delivery error releases the claim and the job retries (`retry_on`).
+
+*Alternatives considered*: marking and sending in separate jobs; matching an
+exact day (`due_on == today + 3`).
+
+The claim and the send happen in one job, so a duplicate enqueue or a Solid Queue re-run after a crash finds the claim
+taken and sends nothing. Only a crash between claiming and sending can lose a reminder, an
+acceptable trade-off for notifications. The scheduler selects by date window, so a run missed because of downtime is
+caught up: `due_soon` within its 3-day window and `due_today` for up to 7 days (`REMINDER_CATCH_UP`), worded "was due
+on …" once the date has passed, so long-overdue loans aren't emailed a misleading "due today".

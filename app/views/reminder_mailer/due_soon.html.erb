@@ -1,0 +1,8 @@
+<p>Hello <%= @reader.name %>,</p>
+
+<p>
+  This is a reminder that <strong><%= @book.title %></strong> by <%= @book.author %>
+  (serial number <%= @book.serial_number %>) is due back on <%= l(@borrowing.due_on, format: :long) %>.
+</p>
+
+<p>Thank you,<br>Your library</p>

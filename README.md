@@ -35,6 +35,7 @@ Every variable is optional. Locally they can be put in `.env`, which is loaded b
 | `DB_GSSENCMODE`   | `disable`                | libpq GSSAPI encryption; `disable` avoids a macOS crash  |
 | `SECRET_KEY_BASE` | none (production only)   | Generate with `bin/rails secret`                         |
 | `RAILS_LOG_LEVEL` | `info` (production only) | Log verbosity                                            |
+| `MAILER_FROM`     | `library@example.com`    | Sender address of reminder emails                        |
 
 ## API
 
@@ -53,6 +54,32 @@ name. `details` holds per-field validation messages for 422 and is `null` otherw
 ```json
 { "error": { "status": "unprocessable_content", "message": "Email has already been taken", "details": { "email": ["has already been taken"] } } }
 ```
+
+## Emails
+
+No real emails are sent.
+
+Locally that is `log/development.log`, including emails delivered by `bin/jobs`. Tests use the standard `:test`
+delivery method.
+
+### Due-date reminders
+
+Books are due 30 days after borrowing. `SendDueDateRemindersJob` runs from Solid Queue's recurring schedule
+(`config/recurring.yml`) every day at 8am in the app time zone (`TZ`), once per reminder:
+
+- `due_soon`: books due within the next 3 days
+- `due_today`: books due today, or overdue by up to 7 days if a run was missed (then the email says "was due on …")
+
+For each borrowing that needs a reminder it enqueues a `SendReminderJob`, which atomically records the reminder as sent
+(`*_reminder_sent_at`) and then sends it. A reminder is therefore sent at most once, even if the scheduler runs twice; a
+delivery error releases it for a retry. A missed day is caught up on the next run, and returned books and readers
+without an email are skipped. Run it by hand with:
+
+```bash
+bin/rails runner 'SendDueDateRemindersJob.perform_now("due_soon")'
+```
+
+In development, preview both emails at <http://localhost:3000/rails/mailers/reminder_mailer>.
 
 ## Running tests
 
