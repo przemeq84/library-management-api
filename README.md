@@ -71,6 +71,23 @@ Every variable is optional. Locally they can be put in `.env`, which is loaded b
 
 JSON over HTTP; send request bodies with `Content-Type: application/json`. There is no authentication.
 
+### Endpoints
+
+| Endpoint                 | Body                                 | Errors        | Notes                                     |
+| ------------------------ | ------------------------------------ | ------------- | ----------------------------------------- |
+| `GET /readers`           |                                      | 400           | Ordered by card number, paginated         |
+| `POST /readers`          | `reader: card_number, name, email`   | 400, 422      | `email` is optional                       |
+| `DELETE /readers/:id`    |                                      | 404, 409      | Soft delete; 409 while a book is borrowed |
+| `GET /books`             |                                      | 400           | Ordered by serial number, paginated       |
+| `GET /books/:id`         |                                      | 404           | History newest first                      |
+| `POST /books`            | `book: serial_number, title, author` | 400, 422      |                                           |
+| `DELETE /books/:id`      |                                      | 404, 409      | Soft delete; 409 while borrowed           |
+| `POST /books/:id/borrow` | `reader_card_number`                 | 400, 404, 409 | Due in 30 days                            |
+| `POST /books/:id/return` | `reader_card_number`                 | 400, 404, 409 | 409 unless this reader has it             |
+
+Request bodies are JSON objects, e.g. `{ "reader": { "card_number": "100007", "name": "Ada" } }` or
+`{ "reader_card_number": "100001" }`.
+
 ### Pagination
 
 List endpoints return a plain JSON array. Use `page` (positive integer, default `1`) and `per_page` (integer from `1`
