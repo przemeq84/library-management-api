@@ -35,7 +35,7 @@ RSpec.shared_examples "a paginated list" do |factory:, order_by:|
       get path, params: { page: }
 
       expect(response).to have_http_status(:bad_request)
-      expect(json["error"]).to include("status" => "bad_request", "message" => "page must be a positive integer")
+      expect(json).to eq(error_json("bad_request", "page must be a positive integer"))
     end
   end
 
@@ -43,7 +43,7 @@ RSpec.shared_examples "a paginated list" do |factory:, order_by:|
     get path, params: { page: "99999999999999999999" }
 
     expect(response).to have_http_status(:bad_request)
-    expect(json["error"]).to include("status" => "bad_request", "message" => "page is out of range")
+    expect(json).to eq(error_json("bad_request", "page is out of range"))
   end
 
   [ "", "0", "101", "-5", "many", "2.5" ].each do |per_page|
@@ -51,8 +51,7 @@ RSpec.shared_examples "a paginated list" do |factory:, order_by:|
       get path, params: { per_page: }
 
       expect(response).to have_http_status(:bad_request)
-      expect(json["error"]).to include("status" => "bad_request",
-                                       "message" => "per_page must be an integer between 1 and 100")
+      expect(json).to eq(error_json("bad_request", "per_page must be an integer between 1 and 100"))
     end
   end
 end
