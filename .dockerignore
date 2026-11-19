@@ -42,3 +42,6 @@
 /.idea/
 *.iml
 /.ruby-gemset
+
+# Ignore the SimpleCov coverage report.
+/coverage/

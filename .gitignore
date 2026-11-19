@@ -27,3 +27,6 @@
 # Ignore IDE files.
 /.idea/
 *.iml
+
+# Ignore the SimpleCov coverage report.
+/coverage/

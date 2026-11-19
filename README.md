@@ -1,6 +1,6 @@
 # Library Management API
 
-A JSON API for library staff to manage books, readers and borrowings. 
+A JSON API for library staff to manage books, readers and borrowings.
 
 Built with Ruby on Rails (API-only), PostgreSQL and Solid Queue.
 
@@ -38,8 +38,10 @@ Every variable is optional. Locally they can be put in `.env`, which is loaded b
 ## Running tests
 
 ```bash
-bundle exec rspec
+bundle exec rspec      # coverage report in coverage/index.html
 ```
+
+With `CI` set (GitHub Actions, `bin/ci`), the run fails below 90% line or 80% branch coverage.
 
 Lint and security checks:
 
@@ -49,3 +51,15 @@ bin/mdl
 bin/brakeman --no-pager
 bin/bundler-audit
 ```
+
+All of the above (plus `bin/setup`) run in one go with:
+
+```bash
+bin/ci
+```
+
+## Continuous integration
+
+GitHub Actions (`.github/workflows/ci.yml`) runs `bin/ci` on every pull request and on pushes to `main`. 
+The checks are defined once in `config/ci.rb`, so CI runs exactly what `bin/ci` runs locally.
+The SimpleCov report is uploaded as the `coverage` artifact.

@@ -6,8 +6,26 @@ on:
     branches: [ main ]
 
 jobs:
-  scan_ruby:
+  # All checks (style, security, tests) are defined once in config/ci.rb and run via bin/ci,
+  # the same command developers run locally.
+  ci:
     runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:17
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+        ports:
+          - 5432:5432
+        options: --health-cmd "pg_isready -U postgres" --health-interval 10s --health-timeout 5s --health-retries 5
+
+    env:
+      RAILS_ENV: test
+      DB_HOST: localhost
+      DB_USER: postgres
+      DB_PASSWORD: postgres
 
     steps:
       - name: Checkout code
@@ -18,24 +36,13 @@ jobs:
         with:
           bundler-cache: true
 
-      - name: Scan for common Rails security vulnerabilities using static analysis
-        run: bin/brakeman --no-pager
-      
-      - name: Scan for known security vulnerabilities in gems used
-        run: bin/bundler-audit
-      
-  lint:
-    runs-on: ubuntu-latest
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
+      - name: Run bin/ci
+        run: bin/ci
 
-      - name: Set up Ruby
-        uses: ruby/setup-ruby@v1
+      - name: Upload coverage report
+        if: always()
+        uses: actions/upload-artifact@v4
         with:
-          bundler-cache: true
-
-      # TODO: Add a RuboCop result cache once linting gets slow enough to be worth it.
-      - name: Lint code for consistent style
-        run: bin/rubocop -f github
-
+          name: coverage
+          path: coverage/
+          if-no-files-found: ignore

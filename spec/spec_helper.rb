@@ -1,3 +1,12 @@
+# Coverage must start before any application code is loaded. Report: coverage/index.html
+require "simplecov"
+SimpleCov.start "rails" do
+  enable_coverage :branch
+  # Enforced only for full CI runs (GitHub Actions and bin/ci set CI), so running a
+  # single spec file locally doesn't fail on coverage.
+  minimum_coverage line: 90, branch: 80 if ENV["CI"]
+end
+
 RSpec.configure do |config|
   config.expect_with :rspec do |expectations|
     expectations.include_chain_clauses_in_custom_matcher_descriptions = true
