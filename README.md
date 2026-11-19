@@ -21,6 +21,11 @@ bin/rails server       # API on http://localhost:3000
 bin/jobs               # Solid Queue worker + recurring tasks (separate terminal)
 ```
 
+### Demo data
+
+`bin/rails db:prepare` loads `db/seeds.rb` when it creates the database; run `bin/rails db:seed` to load it again (it
+is idempotent).
+
 ## Configuration
 
 Every variable is optional. Locally they can be put in `.env`, which is loaded by `dotenv-rails`.
