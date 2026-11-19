@@ -32,6 +32,7 @@ Every variable is optional. Locally they can be put in `.env`, which is loaded b
 | `DB_PORT`         | `5432`                   | PostgreSQL port                                          |
 | `DB_USER`         | OS user                  | PostgreSQL role                                          |
 | `DB_PASSWORD`     | none                     | PostgreSQL password                                      |
+| `DB_GSSENCMODE`   | `disable`                | libpq GSSAPI encryption; `disable` avoids a macOS crash  |
 | `SECRET_KEY_BASE` | none (production only)   | Generate with `bin/rails secret`                         |
 | `RAILS_LOG_LEVEL` | `info` (production only) | Log verbosity                                            |
 

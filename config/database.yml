@@ -11,6 +11,9 @@ default: &default
   port: <%= ENV["DB_PORT"] %>
   username: <%= ENV["DB_USER"] %>
   password: <%= ENV["DB_PASSWORD"] %>
+  # libpq's default GSSAPI (Kerberos) encryption probe segfaults in forked processes on macOS
+  # (Solid Queue workers started by `bin/jobs`). The app doesn't use Kerberos; SSL is unaffected.
+  gssencmode: <%= ENV.fetch("DB_GSSENCMODE", "disable") %>
 
 development:
   primary:
