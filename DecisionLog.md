@@ -22,9 +22,9 @@ removed, and production uses the in-process `:memory_store` cache.
 Action Cable, Solid Cache).
 
 The API has no uploads, inbound email, rich text, websockets or `Rails.cache` usage, so those components would only add
-boot time, attack surface, an extra database and system dependencies (libvips). `kamal` and `thruster` stay as
-generated, because they are harmless in the production image. Any removed component can be brought back by re-adding its
-gem or `require` line.
+boot time, attack surface, and an extra database. `kamal`, `thruster` and the generated Dockerfile (including its now
+unused `libvips` package) stay as generated, because they are harmless in the production image. Any removed component
+can be brought back by re-adding its gem or `require` line.
 
 ## RSpec with FactoryBot
 
@@ -178,3 +178,26 @@ taken and sends nothing. Only a crash between claiming and sending can lose a re
 acceptable trade-off for notifications. The scheduler selects by date window, so a run missed because of downtime is
 caught up: `due_soon` within its 3-day window and `due_today` for up to 7 days (`REMINDER_CATCH_UP`), worded "was due
 on …" once the date has passed, so long-overdue loans aren't emailed a misleading "due today".
+
+## Development mode in Docker Compose
+
+*Chosen*: `docker compose up` builds the generated Dockerfile and runs it with `RAILS_ENV=development` and
+`RAILS_LOG_TO_STDOUT` (logs to `docker compose logs`), next to a PostgreSQL service; the entrypoint runs `db:prepare`,
+which also loads the seeds on first boot.
+
+*Alternatives considered*: `RAILS_ENV=production` (info-level logs, no mailer previews, needs `SECRET_KEY_BASE`); a
+separate development Dockerfile with the source mounted.
+
+For development, debug logs (SQL, full email payloads) and mailer previews matter more than production settings,
+and development mode needs no secrets. The generated Dockerfile is reused as is: Bundler skips the missing development
+gems, and code changes need a rebuild rather than live reloading.
+
+## Separate jobs container
+
+*Chosen*: a `jobs` service runs `bin/jobs` from the same image, next to the `web` service.
+
+*Alternatives considered*: running Solid Queue inside Puma (`SOLID_QUEUE_IN_PUMA`).
+
+Web requests and background work scale and restart independently, and job logs (including the logged emails) are
+separated from request logs. Running inside Puma would save one container, which matters more on a small single-server
+deployment than here.

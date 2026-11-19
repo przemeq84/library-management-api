@@ -6,12 +6,37 @@ Built with Ruby on Rails (API-only), PostgreSQL and Solid Queue.
 
 Key design decisions are recorded in [DecisionLog.md](DecisionLog.md).
 
+## Quick start (Docker)
+
+```bash
+docker compose up --build
+```
+
+The API is then available on <http://localhost> (port 80), already filled with the [demo data](#demo-data), for example
+`curl localhost/books`. The containers run in development mode, so `docker compose logs -f` shows debug logs (including
+SQL) and mailer previews are at <http://localhost/rails/mailers>. The image is built from the Dockerfile, so code
+changes need `docker compose up --build`.
+
+Emails aren't sent; they appear in the worker's debug log (`docker compose logs -f jobs`). To send the pending reminders
+without waiting for 8am:
+
+```bash
+docker compose exec jobs bin/rails runner 'SendDueDateRemindersJob.perform_now("due_soon")'
+docker compose exec jobs bin/rails runner 'SendDueDateRemindersJob.perform_now("due_today")'
+```
+
+`.env` file is optional. Settings from [Configuration](#configuration) can be put in `.env`. `docker compose down -v`
+removes the containers and the database.
+
 ## Requirements
 
 - Ruby 4.0.10 (see `.ruby-version`)
 - PostgreSQL 14+
 
-## Local setup
+## Local setup (without Docker)
+
+Any PostgreSQL works; the compose database can be used on its own with `docker compose up -d db` and
+`DB_HOST=localhost`, `DB_USER=postgres`, `DB_PASSWORD=postgres` in `.env`.
 
 ```bash
 bundle install

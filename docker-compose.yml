@@ -1,0 +1,59 @@
+# Every setting can be overridden in an optional .env file (see .env.example).
+
+x-app: &app
+  build: .
+  env_file:
+    - path: .env
+      required: false
+  environment:
+    # Development mode for debug logs and mailer previews; logs go to `docker compose logs`.
+    RAILS_ENV: development
+    RAILS_LOG_TO_STDOUT: true
+    DB_HOST: db
+    DB_USER: postgres
+    DB_PASSWORD: postgres
+    TZ: ${TZ:-UTC}
+    MAILER_FROM: ${MAILER_FROM:-library@example.com}
+
+services:
+  db:
+    image: postgres:17
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    # Published so the app can also be run locally without Docker (DB_HOST=localhost, see .env.example).
+    ports:
+      - "5432:5432"
+    volumes:
+      - db-data:/var/lib/postgresql/data
+    healthcheck:
+      test: [ "CMD-SHELL", "pg_isready -U postgres" ]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  web:
+    <<: *app
+    # The entrypoint runs `db:prepare` for the server: creates the databases and loads the seeds on first boot.
+    ports:
+      - "80:80"
+    depends_on:
+      db:
+        condition: service_healthy
+    healthcheck:
+      test: [ "CMD", "curl", "-fsS", "http://localhost/up" ]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+      start_period: 20s
+
+  jobs:
+    <<: *app
+    command: ./bin/jobs
+    # Starts after web has prepared the databases.
+    depends_on:
+      web:
+        condition: service_healthy
+
+volumes:
+  db-data:
