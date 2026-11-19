@@ -73,6 +73,10 @@ Rails.application.configure do
   # Only use :id for inspections in production.
   config.active_record.attributes_for_inspect = [ :id ]
 
+  # Log (instead of raising) when a strict_loading query lazily loads an association,
+  # so a missed `includes` doesn't turn into a 500. Development and test raise.
+  config.active_record.action_on_strict_loading_violation = :log
+
   # Enable DNS rebinding protection and other `Host` header attacks.
   # config.hosts = [
   #   "example.com",     # Allow requests from example.com

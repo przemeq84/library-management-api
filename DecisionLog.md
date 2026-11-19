@@ -127,3 +127,15 @@ body is dropped without an error. Missing or wrongly shaped resource keys still 
 Ignoring extra attributes lets clients and server evolve independently: a client can start sending a field before the
 server knows it, and a removed field doesn't break older clients. Only permitted attributes are assigned, so clients
 still can't set fields like `discarded_at`.
+
+## strict_loading on serialized queries
+
+*Chosen*: the queries whose records are serialized with associations (`BooksController#index` and `#show`) use
+`.strict_loading` alongside `includes`.
+
+*Alternatives considered*: a test-only query counter; the `bullet` gem; `strict_loading_by_default` for every model.
+
+The guard lives next to the `includes` it protects, so any association the serializer touches without preloading fails
+the existing request specs. Model code that lazily loads associations on single records (e.g. `Borrowing.borrow!`) is
+not an N+1 and stays unaffected. A lazy association load raises in development and test, and is only logged in
+production (`action_on_strict_loading_violation = :log`).
