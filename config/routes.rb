@@ -6,7 +6,12 @@ Rails.application.routes.draw do
   get "up" => "rails/health#show", as: :rails_health_check
 
   resources :readers, only: %i[index create destroy]
-  resources :books, only: %i[index show create destroy]
+  resources :books, only: %i[index show create destroy] do
+    member do
+      post :borrow, action: :borrow_book
+      post :return, action: :return_book # `return` is a Ruby keyword
+    end
+  end
 
   # Defines the root path route ("/")
   # root "posts#index"

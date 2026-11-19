@@ -139,3 +139,14 @@ The guard lives next to the `includes` it protects, so any association the seria
 the existing request specs. Model code that lazily loads associations on single records (e.g. `Borrowing.borrow!`) is
 not an N+1 and stays unaffected. A lazy association load raises in development and test, and is only logged in
 production (`action_on_strict_loading_violation = :log`).
+
+## Borrow and return as actions on books
+
+*Chosen*: `POST /books/:id/borrow` and `POST /books/:id/return` member routes on `BooksController`
+
+*Alternatives considered*: a `borrowings` resource (`POST /borrowings`, `PATCH /borrowings/:id`); a nested singular
+`/books/:id/borrowing` resource with `create`/`destroy`.
+
+Staff think in terms of "borrow this book" and "return this book", and both operations start from the book in hand.
+API user does not need to care about borrowing id to handle return. Both return 200: they are action verbs on an
+existing book rather than REST creation of a new resource, so 201 doesn't apply.
