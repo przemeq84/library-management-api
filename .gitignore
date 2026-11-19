@@ -23,3 +23,7 @@
 !/tmp/pids/.keep
 
 .ruby-gemset
+
+# Ignore IDE files.
+/.idea/
+*.iml

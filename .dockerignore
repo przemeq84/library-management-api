@@ -37,3 +37,8 @@
 # Ignore Docker-related files
 /.dockerignore
 /Dockerfile*
+
+# Ignore IDE and local Ruby version manager files.
+/.idea/
+*.iml
+/.ruby-gemset
