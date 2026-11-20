@@ -9,6 +9,8 @@ CI.run do
   step "Security: Gem audit", "bin/bundler-audit"
   step "Security: Brakeman code analysis", "bin/brakeman --quiet --no-pager --exit-on-warn --exit-on-error"
 
+  # bin/setup's db:prepare seeds a freshly created database; reset the test DB so seeds don't leak into specs.
+  step "Setup: Test database", "env RAILS_ENV=test bin/rails db:test:prepare"
   step "Tests: RSpec", "env CI=true bundle exec rspec"
 
   # Optional: set a green GitHub commit status to unblock PR merge.
