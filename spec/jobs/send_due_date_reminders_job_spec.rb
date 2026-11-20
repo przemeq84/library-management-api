@@ -110,6 +110,6 @@ RSpec.describe SendDueDateRemindersJob do
   context "with an unknown reminder" do
     let(:reminder) { "bogus" }
 
-    it { expect { perform }.to raise_error(ArgumentError, 'unknown reminder: "bogus"') }
+    it { expect { perform }.to raise_error(KeyError) }
   end
 end

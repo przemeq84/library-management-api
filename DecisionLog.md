@@ -182,9 +182,9 @@ move into the primary database.
 
 ### Reminders from one recurring job
 
-*Chosen*: `SendDueDateRemindersJob` takes a reminder scope (`due_soon` or `due_today`) and is scheduled twice in
-`config/recurring.yml`, every day at 8am. It only finds borrowings that still need the reminder and enqueues one
-`SendReminderJob` per borrowing.
+*Chosen*: `SendDueDateRemindersJob` takes a reminder name (`due_soon` or `due_today`, see
+[Reminder kinds](#reminder-kinds-as-a-value-object-registry)) and is scheduled twice in `config/recurring.yml`, every
+day at 8am. It only finds borrowings that still need the reminder and enqueues one `SendReminderJob` per borrowing.
 
 *Alternatives considered*: enqueueing two delayed jobs (`set(wait_until:)`) when a book is borrowed; one job sending
 both reminders, sending all emails directly from the scheduling job.

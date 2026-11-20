@@ -11,7 +11,7 @@ RSpec.describe SendReminderJob do
   %w[due_soon due_today].each do |reminder|
     context "with #{reminder}" do
       let(:kind) { reminder }
-      let(:sent_at) { borrowing.reload.public_send(:"#{reminder}_reminder_sent_at") }
+      let(:sent_at) { borrowing.reload.public_send(Borrowing::Reminder.fetch(reminder).sent_at_column) }
 
       it "sends the reminder" do
         expect { perform }.to change(ActionMailer::Base.deliveries, :count).by(1)
@@ -98,6 +98,6 @@ RSpec.describe SendReminderJob do
   context "with an unknown reminder" do
     let(:kind) { "bogus" }
 
-    it { expect { perform }.to raise_error(ArgumentError, "unknown reminder: \"bogus\"") }
+    it { expect { perform }.to raise_error(KeyError) }
   end
 end

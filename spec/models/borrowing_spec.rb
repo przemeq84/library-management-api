@@ -184,6 +184,90 @@ RSpec.describe Borrowing do
     end
   end
 
+  describe "#claim_reminder" do
+    subject(:claim) { borrowing.claim_reminder(reminder) }
+
+    let(:borrowing) { create(:borrowing) }
+    let(:reminder) { Borrowing::Reminder::DUE_SOON }
+
+    before { freeze_time }
+
+    context "with reminder not sent yet" do
+      it { is_expected.to be(true) }
+
+      it "records the reminder as sent now" do
+        expect { claim }.to change { borrowing.reload.due_soon_reminder_sent_at }.from(nil).to(Time.current)
+      end
+    end
+
+    it "leaves the other reminder unclaimed" do
+      expect { claim }.not_to change { borrowing.reload.due_today_reminder_sent_at }.from(nil)
+    end
+
+    context "when the reminder was already sent" do
+      let(:borrowing) { create(:borrowing, due_soon_reminder_sent_at: 1.day.ago) }
+
+      it { is_expected.to be(false) }
+
+      it "keeps the original sent time" do
+        expect { claim }.not_to change { borrowing.reload.due_soon_reminder_sent_at }.from(1.day.ago)
+      end
+    end
+
+    context "when another process claimed it after the borrowing was loaded" do
+      before { described_class.where(id: borrowing.id).update_all(due_soon_reminder_sent_at: 1.minute.ago) }
+
+      it { is_expected.to be(false) }
+
+      it "keeps the other claim" do
+        expect { claim }.not_to change { borrowing.reload.due_soon_reminder_sent_at }.from(1.minute.ago)
+      end
+    end
+
+    context "when the book is returned" do
+      let(:borrowing) { create(:borrowing, :returned) }
+
+      it { is_expected.to be(false) }
+
+      it "records nothing" do
+        expect { claim }.not_to change { borrowing.reload.due_soon_reminder_sent_at }.from(nil)
+      end
+    end
+
+    context "when the reader has no email" do
+      let(:borrowing) { create(:borrowing, reader: create(:reader, email: nil)) }
+
+      it { is_expected.to be(false) }
+
+      it "records nothing" do
+        expect { claim }.not_to change { borrowing.reload.due_soon_reminder_sent_at }.from(nil)
+      end
+    end
+  end
+
+  describe "#release_reminder" do
+    subject(:release) { borrowing.release_reminder(reminder) }
+
+    let(:borrowing) { create(:borrowing, due_soon_reminder_sent_at: 1.hour.ago, due_today_reminder_sent_at: 1.hour.ago) }
+    let(:reminder) { Borrowing::Reminder::DUE_SOON }
+
+    before { freeze_time }
+
+    it "clears the reminder's sent time" do
+      expect { release }.to change { borrowing.reload.due_soon_reminder_sent_at }.from(1.hour.ago).to(nil)
+    end
+
+    it "leaves the other reminder's sent time" do
+      expect { release }.not_to change { borrowing.reload.due_today_reminder_sent_at }.from(1.hour.ago)
+    end
+
+    it "lets the reminder be claimed again" do
+      release
+
+      expect(borrowing.claim_reminder(reminder)).to be(true)
+    end
+  end
+
   describe "database constraints" do
     it "allows only one active borrowing per book" do
       create(:borrowing, book:)
