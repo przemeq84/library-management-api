@@ -114,8 +114,13 @@ delivery error releases it for a retry. A missed day is caught up on the next ru
 without an email are skipped. Run it by hand with:
 
 ```bash
+# Local:
 bin/rails runner 'SendDueDateRemindersJob.perform_now("due_soon")'
 bin/rails runner 'SendDueDateRemindersJob.perform_now("due_today")'
+
+#Docker:
+docker compose exec jobs bin/rails runner 'SendDueDateRemindersJob.perform_now("due_soon")'
+docker compose exec jobs bin/rails runner 'SendDueDateRemindersJob.perform_now("due_today")'
 ```
 
 Preview all emails at <http://localhost:3000/rails/mailers>.
