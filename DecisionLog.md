@@ -1,18 +1,14 @@
 # Decision Log
 
-## Separate queue database
+- [Application setup and deployment](#application-setup-and-deployment)
+- [Development tooling and code quality](#development-tooling-and-code-quality)
+- [Domain and data model](#domain-and-data-model)
+- [HTTP API](#http-api)
+- [Background jobs and reminders](#background-jobs-and-reminders)
 
-*Chosen*: `primary` and `queue` databases in development and production (the Rails 8 default layout minus `cache` and
-`cable`). Tests use only `primary`, with the `:test` Active Job adapter.
+## Application setup and deployment
 
-*Alternatives considered*: Solid Queue tables in the primary database; the `async` adapter in development.
-
-Keeping the queue separate follows the Rails default and keeps polling traffic away from application tables. Using Solid
-Queue in development, rather than `async`, means recurring jobs can be run and observed locally with `bin/jobs`. The
-cost is that a job can't be enqueued in the same transaction as a domain write; if that is ever needed, the queue can
-move into the primary database.
-
-## Dropping unused Rails frameworks
+### Dropping unused Rails frameworks
 
 *Chosen*: only Active Record, Active Job, Action Controller, Action Mailer, Action View (needed by mailers) and the
 test_unit railtie (needed by mailer previews) are loaded. `solid_cache`, `solid_cable` and `image_processing` are
@@ -26,22 +22,51 @@ boot time, attack surface, and an extra database. `kamal`, `thruster` and the ge
 unused `libvips` package) stay as generated, because they are harmless in the production image. Any removed component
 can be brought back by re-adding its gem or `require` line.
 
-## RSpec with FactoryBot
-
-*Chosen*: `rspec-rails` with `factory_bot_rails`, and SimpleCov for coverage.
-*Alternatives considered*: Minitest with fixtures (the Rails default).
-This was a developer personal preference.
-
-## Time zone from the TZ environment variable
+### Time zone from the TZ environment variable
 
 *Chosen*: `config.time_zone = ENV.fetch("TZ", "UTC")`. The same `TZ` variable is passed to the containers.
+
 *Alternatives considered*: a custom `APP_TIME_ZONE` variable; a hard-coded zone in `application.rb`.
+
 Due dates and reminders are day-based, so "today" has to mean the library's local day. `TZ` also sets the OS zone, which
 Solid Queue's recurring schedules (Fugit) use, so a single variable keeps "every day at 8am" and `Time.zone.today`
-consistent. This assumes library is one location. Handling multi-location across timezones would require per location TZ
-setting.  
+consistent. This assumes library is one location. Handling multi-location across timezones would require per location
+TZ setting.
 
-## Markdown style checked by mdl
+### Development mode in Docker Compose
+
+*Chosen*: `docker compose up` builds the generated Dockerfile and runs it with `RAILS_ENV=development` and
+`RAILS_LOG_TO_STDOUT` (logs to `docker compose logs`), next to a PostgreSQL service; the entrypoint runs `db:prepare`,
+which also loads the seeds on first boot.
+
+*Alternatives considered*: `RAILS_ENV=production` (info-level logs, no mailer previews, needs `SECRET_KEY_BASE`); a
+separate development Dockerfile with the source mounted.
+
+For development, debug logs (SQL, full email payloads) and mailer previews matter more than production settings,
+and development mode needs no secrets. The generated Dockerfile is reused as is: Bundler skips the missing development
+gems, and code changes need a rebuild rather than live reloading.
+
+### Separate jobs container
+
+*Chosen*: a `jobs` service runs `bin/jobs` from the same image, next to the `web` service.
+
+*Alternatives considered*: running Solid Queue inside Puma (`SOLID_QUEUE_IN_PUMA`).
+
+Web requests and background work scale and restart independently, and job logs (including the logged emails) are
+separated from request logs. Running inside Puma would save one container, which matters more on a small single-server
+deployment than here.
+
+## Development tooling and code quality
+
+### RSpec with FactoryBot
+
+*Chosen*: `rspec-rails` with `factory_bot_rails`, and SimpleCov for coverage.
+
+*Alternatives considered*: Minitest with fixtures (the Rails default).
+
+This was a developer personal preference.
+
+### Markdown style checked by mdl
 
 *Chosen*: the `mdl` gem (markdownlint for Ruby) with all default rules, and MD013 set to 120 characters (ignoring code
 blocks and tables), run through `bin/mdl` locally and in CI.
@@ -51,33 +76,9 @@ blocks and tables), run through `bin/mdl` locally and in CI.
 Markdown files follow markdownlint's default rules with 120-character lines, enforced in CI so all md files are
 consistent. Individual rules can be relaxed in `.mdl_style.rb` if they get in the way.
 
-## Six-digit numbers stored as strings
+## Domain and data model
 
-*Chosen*: `books.serial_number` and `readers.card_number` are strings validated in the models with `/\A\d{6}\z/`.
-
-*Alternatives considered*: integer columns with a 100000..999999 range formatted with leading zeros on output
-
-These are identifiers printed on labels and cards, not quantities and is never used in arithmetic.
-It needs no database-level guard as all writes go through the models.
-
-## Soft delete with discard, without a default scope
-
-*Chosen*: books and readers include `Discard::Model` no default scope
-
-*Alternatives considered*: hard deletes, `paranoia` / `acts_as_paranoid`, `discard` with a `default_scope`
-
-Borrowing history must keep pointing at books and readers after they are removed from circulation. Explicit `.kept`
-makes it obvious where deleted records are excluded.
-
-## Optional reader email
-
-*Chosen*: `readers.email` is nullable. Readers without an email receive no reminders.
-
-*Alternatives considered*: a required email.
-
-Not every patron of an offline library has, or wants to share, an email address.
-
-## Borrowings as their own table
+### Borrowings as their own table
 
 *Chosen*: a separate `borrowings` table
 
@@ -86,7 +87,7 @@ Not every patron of an offline library has, or wants to share, an email address.
 One table gives both the current state and the full history the book view needs. Allow to use the row lock for
 serializing concurrent requests to avoid race conditions.
 
-## Borrowing.borrow! and Borrowing.return! instead of a service class
+### Borrowing.borrow! and Borrowing.return! instead of a service class
 
 *Chosen*: borrow and return are class methods on `Borrowing`
 
@@ -96,7 +97,35 @@ This is operation that operates only on `Borrowing` object, so it naturally land
 Each operation is a few lines touching one aggregate, so a service layer would add indirection without hiding
 complexity. It can be easily extracted to a service if needed in the future.
 
-## Plain Rails controllers instead of Grape
+### Soft delete with discard, without a default scope
+
+*Chosen*: books and readers include `Discard::Model` no default scope
+
+*Alternatives considered*: hard deletes, `paranoia` / `acts_as_paranoid`, `discard` with a `default_scope`
+
+Borrowing history must keep pointing at books and readers after they are removed from circulation. Explicit `.kept`
+makes it obvious where deleted records are excluded.
+
+### Six-digit numbers stored as strings
+
+*Chosen*: `books.serial_number` and `readers.card_number` are strings validated in the models with `/\A\d{6}\z/`.
+
+*Alternatives considered*: integer columns with a 100000..999999 range formatted with leading zeros on output
+
+These are identifiers printed on labels and cards, not quantities and is never used in arithmetic.
+It needs no database-level guard as all writes go through the models.
+
+### Optional reader email
+
+*Chosen*: `readers.email` is nullable. Readers without an email receive no reminders.
+
+*Alternatives considered*: a required email.
+
+Not every patron of an offline library has, or wants to share, an email address.
+
+## HTTP API
+
+### Plain Rails controllers instead of Grape
 
 *Chosen*: the API is built from plain `ActionController::API` controllers with Rails routing, strong parameters and
 Blueprinter serializers.
@@ -107,7 +136,18 @@ This is a simple internal API used by library staff, so it doesn't need Grape's 
 documentation, and plain controllers keep the stack conventional for any Rails developer. If API usage evolves (public
 clients, several versions), the endpoints can be migrated to Grape or a versioned namespace later.
 
-## Plain arrays for paginated lists
+### Borrow and return as actions on books
+
+*Chosen*: `POST /books/:id/borrow` and `POST /books/:id/return` member routes on `BooksController`
+
+*Alternatives considered*: a `borrowings` resource (`POST /borrowings`, `PATCH /borrowings/:id`); a nested singular
+`/books/:id/borrowing` resource with `create`/`destroy`.
+
+Staff think in terms of "borrow this book" and "return this book", and both operations start from the book in hand.
+API user does not need to care about borrowing id to handle return. Both return 200: they are action verbs on an
+existing book rather than REST creation of a new resource, so 201 doesn't apply.
+
+### Plain arrays for paginated lists
 
 *Chosen*: list endpoints return a bare JSON array, no envelope and no total count.
 
@@ -117,7 +157,7 @@ clients, several versions), the endpoints can be migrated to Grape or a versione
 This is an internal API for library staff, and no client needs totals yet; skipping them also avoids a `COUNT(*)` per
 request. Adding an envelope or headers later is a small, coordinated change with the known clients.
 
-## Unknown request attributes are ignored
+### Unknown request attributes are ignored
 
 *Chosen*: strong parameters (`params.expect`) permit a fixed attribute list per resource; any other attribute in the
 body is dropped without an error. Missing or wrongly shaped resource keys still get a 400.
@@ -128,7 +168,7 @@ Ignoring extra attributes lets clients and server evolve independently: a client
 server knows it, and a removed field doesn't break older clients. Only permitted attributes are assigned, so clients
 still can't set fields like `discarded_at`.
 
-## strict_loading on serialized queries
+### strict_loading on serialized queries
 
 *Chosen*: the queries whose records are serialized with associations (`BooksController#index` and `#show`) use
 `.strict_loading` alongside `includes`.
@@ -140,18 +180,21 @@ the existing request specs. Model code that lazily loads associations on single 
 not an N+1 and stays unaffected. A lazy association load raises in development and test, and is only logged in
 production (`action_on_strict_loading_violation = :log`).
 
-## Borrow and return as actions on books
+## Background jobs and reminders
 
-*Chosen*: `POST /books/:id/borrow` and `POST /books/:id/return` member routes on `BooksController`
+### Separate queue database
 
-*Alternatives considered*: a `borrowings` resource (`POST /borrowings`, `PATCH /borrowings/:id`); a nested singular
-`/books/:id/borrowing` resource with `create`/`destroy`.
+*Chosen*: `primary` and `queue` databases in development and production (the Rails 8 default layout minus `cache` and
+`cable`). Tests use only `primary`, with the `:test` Active Job adapter.
 
-Staff think in terms of "borrow this book" and "return this book", and both operations start from the book in hand.
-API user does not need to care about borrowing id to handle return. Both return 200: they are action verbs on an
-existing book rather than REST creation of a new resource, so 201 doesn't apply.
+*Alternatives considered*: Solid Queue tables in the primary database; the `async` adapter in development.
 
-## Reminders from one recurring job instead of per-loan scheduled jobs
+Keeping the queue separate follows the Rails default and keeps polling traffic away from application tables. Using Solid
+Queue in development, rather than `async`, means recurring jobs can be run and observed locally with `bin/jobs`. The
+cost is that a job can't be enqueued in the same transaction as a domain write; if that is ever needed, the queue can
+move into the primary database.
+
+### Reminders from one recurring job instead of per-loan scheduled jobs
 
 *Chosen*: `SendDueDateRemindersJob` takes a reminder scope (`due_soon` or `due_today`) and is scheduled twice in
 `config/recurring.yml`, every day at 8am. It only finds borrowings that still need the reminder and enqueues one
@@ -164,7 +207,7 @@ Delayed per-loan jobs have to be cancelled or re-checked on return and lost jobs
 over `borrowings` always reflects the current data. Passing the scope keeps a single job with two independent schedules,
 so each reminder kind can be run, retried or rescheduled on its own.
 
-## At-most-once reminders with an atomic sent_at claim
+### At-most-once reminders with an atomic sent_at claim
 
 *Chosen*: `SendReminderJob` claims `due_soon_reminder_sent_at` / `due_today_reminder_sent_at` with one conditional
 `UPDATE` (`<column> IS NULL`, book not returned, reader has an email), and sends the email with `deliver_now` only if
@@ -178,26 +221,3 @@ taken and sends nothing. Only a crash between claiming and sending can lose a re
 acceptable trade-off for notifications. The scheduler selects by date window, so a run missed because of downtime is
 caught up: `due_soon` within its 3-day window and `due_today` for up to 7 days (`REMINDER_CATCH_UP`), worded "was due
 on …" once the date has passed, so long-overdue loans aren't emailed a misleading "due today".
-
-## Development mode in Docker Compose
-
-*Chosen*: `docker compose up` builds the generated Dockerfile and runs it with `RAILS_ENV=development` and
-`RAILS_LOG_TO_STDOUT` (logs to `docker compose logs`), next to a PostgreSQL service; the entrypoint runs `db:prepare`,
-which also loads the seeds on first boot.
-
-*Alternatives considered*: `RAILS_ENV=production` (info-level logs, no mailer previews, needs `SECRET_KEY_BASE`); a
-separate development Dockerfile with the source mounted.
-
-For development, debug logs (SQL, full email payloads) and mailer previews matter more than production settings,
-and development mode needs no secrets. The generated Dockerfile is reused as is: Bundler skips the missing development
-gems, and code changes need a rebuild rather than live reloading.
-
-## Separate jobs container
-
-*Chosen*: a `jobs` service runs `bin/jobs` from the same image, next to the `web` service.
-
-*Alternatives considered*: running Solid Queue inside Puma (`SOLID_QUEUE_IN_PUMA`).
-
-Web requests and background work scale and restart independently, and job logs (including the logged emails) are
-separated from request logs. Running inside Puma would save one container, which matters more on a small single-server
-deployment than here.
