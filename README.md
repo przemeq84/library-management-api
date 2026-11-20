@@ -169,7 +169,3 @@ The SimpleCov report is uploaded as the `coverage` artifact.
 - Add endpoints for editing and removing borrowings and for editing books, so that mistakes
   (e.g., choosing the wrong reader when borrowing) can be corrected through the API.
 - Set up a production environment and deployment strategy with abuse protection (rate limiting, timeouts).
-- Move secrets out of the repository. `config/master.key` is committed on purpose, so a production boot needs no extra
-  setup; it only decrypts the default `secret_key_base`, which nothing in the app relies on (no sessions, cookies or
-  signed data). Before a real deployment, rotate the credentials and pass the key (or `SECRET_KEY_BASE`) through the
-  environment instead.

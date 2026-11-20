@@ -31,3 +31,8 @@
 
 # Ignore the SimpleCov coverage report.
 /coverage/
+
+# Never commit the credentials key.
+/config/master.key
+/config/credentials/*.key
+
