@@ -6,9 +6,10 @@ x-app: &app
     - path: .env
       required: false
   environment:
-    # Development mode for debug logs and mailer previews; logs go to `docker compose logs`.
-    RAILS_ENV: development
-    RAILS_LOG_TO_STDOUT: true
+    # Production mode, as built by the Dockerfile; logs go to `docker compose logs`.
+    RAILS_ENV: production
+    # The app uses no cookies, sessions or signed values, so a public placeholder is enough for a private container.
+    SECRET_KEY_BASE: ${SECRET_KEY_BASE:-docker-compose-placeholder-not-a-secret}
     DB_HOST: db
     DB_PORT: 5432
     DB_USER: postgres

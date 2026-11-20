@@ -13,10 +13,9 @@ docker compose up --build
 ```
 
 The API is then available at <http://localhost:3000>, already loaded with the [demo data](#demo-data), for
-example `curl localhost:3000/books`. The containers run in development mode, so `docker compose logs -f` shows debug
-logs (including SQL), mailer previews are at <http://localhost:3000/rails/mailers> and sent emails at
-<http://localhost:3000/letter_opener>. The image is built from the Dockerfile, so code changes need
-`docker compose up --build`.
+example `curl localhost:3000/books`. The containers run in production mode, so `docker compose logs -f` shows info-level
+logs (set `RAILS_LOG_LEVEL=debug` in `.env` for SQL). Mailer previews are at <http://localhost:3000/rails/mailers> and 
+sent emails at <http://localhost:3000/letter_opener>. Code changes need `docker compose up --build`.
 
 The `.env` file is optional. Any setting from [Configuration](#configuration) can go there.
 
@@ -55,7 +54,7 @@ Every variable is optional. Locally they can be put in `.env`, which is loaded b
 | `DB_USER`         | OS user                  | PostgreSQL role                                          |
 | `DB_PASSWORD`     | none                     | PostgreSQL password                                      |
 | `DB_GSSENCMODE`   | `disable`                | libpq GSSAPI encryption; `disable` avoids a macOS crash  |
-| `SECRET_KEY_BASE` | none (production only)   | Generate with `bin/rails secret`                         |
+| `SECRET_KEY_BASE` | none (production only)   | Generate with `bin/rails secret`, compose has a default  |
 | `RAILS_LOG_LEVEL` | `info` (production only) | Log verbosity                                            |
 | `MAILER_FROM`     | `library@example.com`    | Sender address of reminder emails                        |
 

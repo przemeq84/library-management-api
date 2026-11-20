@@ -19,18 +19,18 @@ Solid Queue's recurring schedules use, so a single variable keeps "every day at 
 consistent. This assumes the library has a single location; supporting several locations across time zones would
 require a per-location time zone setting.
 
-### Development mode in Docker Compose
+### Production mode in Docker Compose
 
-*Chosen*: `docker compose up` builds the generated Dockerfile and runs it with `RAILS_ENV=development` and
-`RAILS_LOG_TO_STDOUT` (logs to `docker compose logs`), next to a PostgreSQL service; the entrypoint runs `db:prepare`,
-which also loads the seeds on first boot.
+*Chosen*: `docker compose up` builds the generated Dockerfile and runs it with `RAILS_ENV=production`.
 
-*Alternatives considered*: `RAILS_ENV=production` (info-level logs, no mailer previews, needs `SECRET_KEY_BASE`); a
-separate development Dockerfile with the source mounted.
+*Alternatives considered*: `RAILS_ENV=development` (debug logs, mailer previews, no secrets, but development gems
+missing from the image)
 
-For development, debug logs (SQL, full email payloads) and mailer previews matter more than production settings,
-and development mode needs no secrets. The generated Dockerfile is reused as is: Bundler skips the missing development
-gems, and code changes need a rebuild rather than live reloading.
+The Dockerfile builds a production image without development gems, so running it in production mode keeps the
+containers consistent with how they were built. Sent emails are visible through
+[letter_opener_web](#sent-emails-in-letter_opener_web), so debug logs are not needed to read them. This also reduce 
+noise in logs. The app uses no cookies, sessions, signed values or credentials, so a placeholder secret keeps 
+`docker compose up` free of setup steps in a private container.
 
 ### Separate jobs container
 
@@ -38,10 +38,9 @@ gems, and code changes need a rebuild rather than live reloading.
 
 *Alternatives considered*: running Solid Queue inside Puma (`SOLID_QUEUE_IN_PUMA`).
 
-Web requests and background work scale and restart independently, and job logs (including the logged emails) are
-separated from request logs. Running inside Puma would save one container, which matters more on a small single-server
-deployment than here. The split matters little in development, but it keeps the setup close to a future production
-one.
+Web requests and background work scale and restart independently, and job logs are separated from request logs.
+Running inside Puma would save one container, which matters more on a small single-server deployment than here. It
+also means the sent emails have to be shared between the containers through a volume.
 
 ## Development tooling and code quality
 

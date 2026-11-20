@@ -15,11 +15,6 @@ Rails.application.configure do
   # Enable server timing.
   config.server_timing = true
 
-  # Log to STDOUT instead of log/development.log when set, e.g. in Docker Compose (`docker compose logs`).
-  if ActiveModel::Type::Boolean.new.cast(ENV["RAILS_LOG_TO_STDOUT"])
-    config.logger = ActiveSupport::TaggedLogging.logger(STDOUT)
-  end
-
   # Prevent health checks (e.g. Docker Compose every few seconds) from clogging up the logs.
   config.silence_healthcheck_path = "/up"
 

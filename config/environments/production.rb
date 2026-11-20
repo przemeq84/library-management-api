@@ -56,6 +56,10 @@ Rails.application.configure do
 
   config.action_mailer.delivery_method = :letter_opener_web
 
+  # Mailer previews as in development. rspec-rails (which sets the path) isn't loaded here.
+  config.action_mailer.show_previews = true
+  config.action_mailer.preview_paths = [ Rails.root.join("spec/mailers/previews").to_s ]
+
   # Specify outgoing SMTP server. Remember to add smtp/* credentials via bin/rails credentials:edit.
   # config.action_mailer.smtp_settings = {
   #   user_name: Rails.application.credentials.dig(:smtp, :user_name),
