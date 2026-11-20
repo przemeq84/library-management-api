@@ -28,8 +28,8 @@ missing from the image)
 
 The Dockerfile builds a production image without development gems, so running it in production mode keeps the
 containers consistent with how they were built. Sent emails are visible through
-[letter_opener_web](#sent-emails-in-letter_opener_web), so debug logs are not needed to read them. This also reduce 
-noise in logs. The app uses no cookies, sessions, signed values or credentials, so a placeholder secret keeps 
+[letter_opener_web](#sent-emails-in-letter_opener_web), so debug logs are not needed to read them. This also reduce
+noise in logs. The app uses no cookies, sessions, signed values or credentials, so a placeholder secret keeps
 `docker compose up` free of setup steps in a private container.
 
 ### Separate jobs container

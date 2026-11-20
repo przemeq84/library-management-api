@@ -14,7 +14,7 @@ docker compose up --build
 
 The API is then available at <http://localhost:3000>, already loaded with the [demo data](#demo-data), for
 example `curl localhost:3000/books`. The containers run in production mode, so `docker compose logs -f` shows info-level
-logs (set `RAILS_LOG_LEVEL=debug` in `.env` for SQL). Mailer previews are at <http://localhost:3000/rails/mailers> and 
+logs (set `RAILS_LOG_LEVEL=debug` in `.env` for SQL). Mailer previews are at <http://localhost:3000/rails/mailers> and
 sent emails at <http://localhost:3000/letter_opener>. Code changes need `docker compose up --build`.
 
 The `.env` file is optional. Any setting from [Configuration](#configuration) can go there.
