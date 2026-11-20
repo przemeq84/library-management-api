@@ -111,6 +111,19 @@ RSpec.describe Book do
     end
   end
 
+  describe "#borrowings_chronological" do
+    let(:book) { create(:book) }
+    let!(:older) { create(:borrowing, :returned, book:, borrowed_at: 2.months.ago) }
+    let!(:current) { create(:borrowing, book:, borrowed_at: 1.day.ago) }
+    let!(:oldest) { create(:borrowing, :returned, book:, borrowed_at: 3.months.ago) }
+
+    before { create(:borrowing, :returned, borrowed_at: 1.week.ago) }
+
+    it "lists the book's borrowings, newest first" do
+      expect(book.borrowings_chronological).to eq([ current, older, oldest ])
+    end
+  end
+
   describe "#discard!" do
     let(:book) { create(:book) }
     let(:reader) { create(:reader) }

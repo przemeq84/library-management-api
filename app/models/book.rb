@@ -2,6 +2,7 @@ class Book < ApplicationRecord
   include Discard::Model
 
   has_many :borrowings
+  has_many :borrowings_chronological, -> { chronological }, class_name: "Borrowing"
   has_one :current_borrowing, -> { active }, class_name: "Borrowing"
 
   validates :title, :author, presence: true

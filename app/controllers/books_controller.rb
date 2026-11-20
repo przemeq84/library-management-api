@@ -38,7 +38,7 @@ class BooksController < ApplicationController
   private
 
   def render_detailed_book
-    book = Book.kept.strict_loading.includes(current_borrowing: :reader, borrowings: :reader).find(params[:id])
+    book = Book.kept.strict_loading.includes(current_borrowing: :reader, borrowings_chronological: :reader).find(params[:id])
 
     render json: BookBlueprint.render_as_hash(book, view: :detailed)
   end

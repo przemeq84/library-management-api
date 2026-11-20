@@ -6,8 +6,6 @@ class BookBlueprint < Blueprinter::Base
   association :current_borrowing, blueprint: BorrowingBlueprint
 
   view :detailed do
-    association :borrowings, blueprint: BorrowingBlueprint do |book, _options|
-      book.borrowings.sort_by(&:borrowed_at).reverse
-    end
+    association :borrowings_chronological, name: :borrowings, blueprint: BorrowingBlueprint
   end
 end
