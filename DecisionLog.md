@@ -8,20 +8,6 @@
 
 ## Application setup and deployment
 
-### Dropping unused Rails frameworks
-
-*Chosen*: only Active Record, Active Job, Action Controller, Action Mailer, Action View (needed by mailers) and the
-test_unit railtie (needed by mailer previews) are loaded. `solid_cache`, `solid_cable` and `image_processing` are
-removed, and production uses the in-process `:memory_store` cache.
-
-*Alternatives considered*: keep the generator's `rails new` defaults (Active Storage, Action Mailbox, Action Text,
-Action Cable, Solid Cache).
-
-The API has no uploads, inbound email, rich text, websockets or `Rails.cache` usage, so those components would only add
-boot time, attack surface, and an extra database. `kamal`, `thruster` and the generated Dockerfile (including its now
-unused `libvips` package) stay as generated, because they are harmless in the production image. Any removed component
-can be brought back by re-adding its gem or `require` line.
-
 ### Time zone from the TZ environment variable
 
 *Chosen*: `config.time_zone = ENV.fetch("TZ", "UTC")`. The same `TZ` variable is passed to the containers.
@@ -29,9 +15,9 @@ can be brought back by re-adding its gem or `require` line.
 *Alternatives considered*: a custom `APP_TIME_ZONE` variable; a hard-coded zone in `application.rb`.
 
 Due dates and reminders are day-based, so "today" has to mean the library's local day. `TZ` also sets the OS zone, which
-Solid Queue's recurring schedules (Fugit) use, so a single variable keeps "every day at 8am" and `Time.zone.today`
-consistent. This assumes library is one location. Handling multi-location across timezones would require per location
-TZ setting.
+Solid Queue's recurring schedules use, so a single variable keeps "every day at 8am" and `Time.zone.today`
+consistent. This assumes the library has a single location; supporting several locations across time zones would
+require a per-location time zone setting.
 
 ### Development mode in Docker Compose
 
@@ -54,7 +40,8 @@ gems, and code changes need a rebuild rather than live reloading.
 
 Web requests and background work scale and restart independently, and job logs (including the logged emails) are
 separated from request logs. Running inside Puma would save one container, which matters more on a small single-server
-deployment than here.
+deployment than here. The split matters little in development, but it keeps the setup close to a future production
+one.
 
 ## Development tooling and code quality
 
@@ -64,7 +51,7 @@ deployment than here.
 
 *Alternatives considered*: Minitest with fixtures (the Rails default).
 
-This was a developer personal preference.
+This was the developer's personal preference.
 
 ### Markdown style checked by mdl
 
@@ -73,35 +60,35 @@ blocks and tables), run through `bin/mdl` locally and in CI.
 
 *Alternatives considered*: RuboCop (it lints Ruby only; `rubocop-md` checks just the Ruby code blocks inside Markdown).
 
-Markdown files follow markdownlint's default rules with 120-character lines, enforced in CI so all md files are
+Markdown files follow markdownlint's default rules with 120-character lines, enforced in CI so all Markdown files stay
 consistent. Individual rules can be relaxed in `.mdl_style.rb` if they get in the way.
 
 ## Domain and data model
 
 ### Borrowings as their own table
 
-*Chosen*: a separate `borrowings` table
+*Chosen*: a separate `borrowings` table.
 
 *Alternatives considered*: `borrowed_at` / `reader_id` columns on `books` with a separate history table.
 
-One table gives both the current state and the full history the book view needs. Allow to use the row lock for
-serializing concurrent requests to avoid race conditions.
+One table gives both the current state and the full history the book view needs. It also allows a row lock to
+serialize concurrent requests and avoid race conditions.
 
 ### Borrowing.borrow! and Borrowing.return! instead of a service class
 
-*Chosen*: borrow and return are class methods on `Borrowing`
+*Chosen*: borrow and return are class methods on `Borrowing`.
 
 *Alternatives considered*: service objects (`BorrowBook`, `ReturnBook`); instance methods on `Book`.
 
-This is operation that operates only on `Borrowing` object, so it naturally lands there.
+Both operations act only on `Borrowing` records, so they naturally belong there.
 Each operation is a few lines touching one aggregate, so a service layer would add indirection without hiding
-complexity. It can be easily extracted to a service if needed in the future.
+complexity. They can easily be extracted into a service if needed in the future.
 
-### Soft delete with discard, without a default scope
+### Soft delete with the discard gem, without a default scope
 
-*Chosen*: books and readers include `Discard::Model` no default scope
+*Chosen*: books and readers include `Discard::Model`, without a default scope.
 
-*Alternatives considered*: hard deletes, `paranoia` / `acts_as_paranoid`, `discard` with a `default_scope`
+*Alternatives considered*: hard deletes, `paranoia` / `acts_as_paranoid`, `discard` with a `default_scope`.
 
 Borrowing history must keep pointing at books and readers after they are removed from circulation. Explicit `.kept`
 makes it obvious where deleted records are excluded.
@@ -110,10 +97,10 @@ makes it obvious where deleted records are excluded.
 
 *Chosen*: `books.serial_number` and `readers.card_number` are strings validated in the models with `/\A\d{6}\z/`.
 
-*Alternatives considered*: integer columns with a 100000..999999 range formatted with leading zeros on output
+*Alternatives considered*: integer columns with a 1..999999 range, formatted with leading zeros on output.
 
-These are identifiers printed on labels and cards, not quantities and is never used in arithmetic.
-It needs no database-level guard as all writes go through the models.
+These are identifiers printed on labels and cards, not quantities, and they are never used in arithmetic.
+The format needs no database-level check, as all writes go through the models.
 
 ### Optional reader email
 
@@ -138,13 +125,13 @@ clients, several versions), the endpoints can be migrated to Grape or a versione
 
 ### Borrow and return as actions on books
 
-*Chosen*: `POST /books/:id/borrow` and `POST /books/:id/return` member routes on `BooksController`
+*Chosen*: `POST /books/:id/borrow` and `POST /books/:id/return` member routes on `BooksController`.
 
 *Alternatives considered*: a `borrowings` resource (`POST /borrowings`, `PATCH /borrowings/:id`); a nested singular
 `/books/:id/borrowing` resource with `create`/`destroy`.
 
 Staff think in terms of "borrow this book" and "return this book", and both operations start from the book in hand.
-API user does not need to care about borrowing id to handle return. Both return 200: they are action verbs on an
+API clients don't need to know the borrowing ID to return a book. Both return 200: they are action verbs on an
 existing book rather than REST creation of a new resource, so 201 doesn't apply.
 
 ### Plain arrays for paginated lists
@@ -176,7 +163,7 @@ still can't set fields like `discarded_at`.
 *Alternatives considered*: a test-only query counter; the `bullet` gem; `strict_loading_by_default` for every model.
 
 The guard lives next to the `includes` it protects, so any association the serializer touches without preloading fails
-the existing request specs. Model code that lazily loads associations on single records (e.g. `Borrowing.borrow!`) is
+the existing request specs. Model code that lazily loads associations on single records (e.g., `Borrowing.borrow!`) is
 not an N+1 and stays unaffected. A lazy association load raises in development and test, and is only logged in
 production (`action_on_strict_loading_violation = :log`).
 
@@ -189,23 +176,23 @@ production (`action_on_strict_loading_violation = :log`).
 
 *Alternatives considered*: Solid Queue tables in the primary database; the `async` adapter in development.
 
-Keeping the queue separate follows the Rails default and keeps polling traffic away from application tables. Using Solid
-Queue in development, rather than `async`, means recurring jobs can be run and observed locally with `bin/jobs`. The
+Keeping the queue separate follows the Rails default and keeps polling traffic away from application tables. The
 cost is that a job can't be enqueued in the same transaction as a domain write; if that is ever needed, the queue can
 move into the primary database.
 
-### Reminders from one recurring job instead of per-loan scheduled jobs
+### Reminders from one recurring job
 
 *Chosen*: `SendDueDateRemindersJob` takes a reminder scope (`due_soon` or `due_today`) and is scheduled twice in
 `config/recurring.yml`, every day at 8am. It only finds borrowings that still need the reminder and enqueues one
 `SendReminderJob` per borrowing.
 
 *Alternatives considered*: enqueueing two delayed jobs (`set(wait_until:)`) when a book is borrowed; one job sending
-both reminders, one job to schedule all emails.
+both reminders, sending all emails directly from the scheduling job.
 
-Delayed per-loan jobs have to be cancelled or re-checked on return and lost jobs are hard to notice, while a daily query
-over `borrowings` always reflects the current data. Passing the scope keeps a single job with two independent schedules,
-so each reminder kind can be run, retried or rescheduled on its own.
+Delayed per-borrowing jobs have to be cancelled or re-checked on return, and lost jobs are hard to notice, while a daily
+query over `borrowings` always reflects the current data. Passing the scope keeps a single job with two independent
+schedules, so each reminder kind can be run, retried or rescheduled on its own. Sending each email from its own job (one
+per borrowing) isolates failures, so only the failed email is retried.
 
 ### At-most-once reminders with an atomic sent_at claim
 
@@ -213,11 +200,8 @@ so each reminder kind can be run, retried or rescheduled on its own.
 `UPDATE` (`<column> IS NULL`, book not returned, reader has an email), and sends the email with `deliver_now` only if
 the claim succeeded. A delivery error releases the claim and the job retries (`retry_on`).
 
-*Alternatives considered*: marking and sending in separate jobs; matching an
-exact day (`due_on == today + 3`).
+*Alternatives considered*: marking and sending in separate jobs; matching an exact day (`due_on == today + 3`).
 
 The claim and the send happen in one job, so a duplicate enqueue or a Solid Queue re-run after a crash finds the claim
-taken and sends nothing. Only a crash between claiming and sending can lose a reminder, an
-acceptable trade-off for notifications. The scheduler selects by date window, so a run missed because of downtime is
-caught up: `due_soon` within its 3-day window and `due_today` for up to 7 days (`REMINDER_CATCH_UP`), worded "was due
-on …" once the date has passed, so long-overdue loans aren't emailed a misleading "due today".
+taken and sends nothing. Only a crash between claiming and sending can lose a reminder, which is an acceptable
+trade-off for notifications. The scheduler selects by date window, so a run missed because of downtime is caught up.
