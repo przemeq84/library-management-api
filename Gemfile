@@ -36,6 +36,10 @@ gem "blueprinter"
 # Pagination [https://github.com/mislav/will_paginate]
 gem "will_paginate"
 
+# Store sent emails and browse them at /letter_opener instead of sending them, in every environment but test
+# [https://github.com/fgrehm/letter_opener_web]
+gem "letter_opener_web", "~> 3.0"
+
 # Use Rack CORS for handling Cross-Origin Resource Sharing (CORS), making cross-origin Ajax possible
 # gem "rack-cors"
 

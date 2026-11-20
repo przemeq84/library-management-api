@@ -205,3 +205,16 @@ the claim succeeded. A delivery error releases the claim and the job retries (`r
 The claim and the send happen in one job, so a duplicate enqueue or a Solid Queue re-run after a crash finds the claim
 taken and sends nothing. Only a crash between claiming and sending can lose a reminder, which is an acceptable
 trade-off for notifications. The scheduler selects by date window, so a run missed because of downtime is caught up.
+
+### Sent emails in letter_opener_web
+
+*Chosen*: the `letter_opener_web` delivery method, with the UI mounted at `/letter_opener` without authentication.
+
+*Alternatives considered*: only logging emails (`perform_deliveries = false`); MailCatcher or Mailpit as an extra
+SMTP container.
+
+Reminders are sent by background jobs, so it should be easy to check what a reader actually received, which mailer
+previews (built from fake records) don't show. letter_opener_web needs no extra service and works in API-only apps.
+Files are enough for a development inbox. The app only runs in a private Docker container, so production uses the same
+inbox and needs no SMTP server or login; exposing it publicly would require real delivery or protecting
+`/letter_opener`.

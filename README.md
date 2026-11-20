@@ -14,11 +14,11 @@ docker compose up --build
 
 The API is then available at <http://localhost:3000>, already loaded with the [demo data](#demo-data), for
 example `curl localhost:3000/books`. The containers run in development mode, so `docker compose logs -f` shows debug
-logs (including SQL) and mailer previews are at <http://localhost:3000/rails/mailers>. The image is built from the
-Dockerfile, so code changes need `docker compose up --build`.
+logs (including SQL), mailer previews are at <http://localhost:3000/rails/mailers> and sent emails at
+<http://localhost:3000/letter_opener>. The image is built from the Dockerfile, so code changes need
+`docker compose up --build`.
 
-The `.env` file is optional. Any setting from [Configuration](#configuration) can go there. `docker compose down -v`
-removes the containers and the database.
+The `.env` file is optional. Any setting from [Configuration](#configuration) can go there.
 
 ## Local setup (without Docker)
 
@@ -96,9 +96,10 @@ name. `details` holds per-field validation messages for 422 and is `null` otherw
 
 ## Emails
 
-No real emails are sent. Locally, they are written to `log/development.log`, including those delivered by `bin/jobs`.
-In Docker, they appear in the worker's debug log (`docker compose logs -f jobs`). Tests use the standard `:test`
-delivery method.
+No real emails are sent. In development and production,
+[letter_opener_web](https://github.com/fgrehm/letter_opener_web) stores them in `tmp/letters`, including those
+delivered by `bin/jobs`, and shows them at <http://localhost:3000/letter_opener>. The page has no authentication, so
+the app must not be exposed publicly.
 
 ### Due-date reminders
 
