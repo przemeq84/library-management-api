@@ -28,7 +28,7 @@ removes the containers and the database.
 - PostgreSQL 14+
 
 Any PostgreSQL server works; the compose database can be used on its own with `docker compose up -d db` and
-`DB_HOST=localhost`, `DB_USER=postgres`, `DB_PASSWORD=postgres` in `.env`.
+`DB_HOST=localhost`, `DB_USER=postgres`, `DB_PASSWORD=postgres`, `DB_PORT=54320` in `.env`.
 
 ```bash
 bundle install

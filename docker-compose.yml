@@ -10,6 +10,7 @@ x-app: &app
     RAILS_ENV: development
     RAILS_LOG_TO_STDOUT: true
     DB_HOST: db
+    DB_PORT: 5432
     DB_USER: postgres
     DB_PASSWORD: postgres
     TZ: ${TZ:-UTC}
@@ -23,7 +24,7 @@ services:
       POSTGRES_PASSWORD: postgres
     # Published so the app can also be run locally without Docker (DB_HOST=localhost, see .env.example).
     ports:
-      - "5432:5432"
+      - "54320:5432"
     volumes:
       - db-data:/var/lib/postgresql/data
     healthcheck:
