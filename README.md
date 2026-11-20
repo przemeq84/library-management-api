@@ -12,10 +12,10 @@ Key design decisions are recorded in [DecisionLog.md](DecisionLog.md).
 docker compose up --build
 ```
 
-The API is then available on <http://localhost> (port 3000), already filled with the [demo data](#demo-data), for example
-`curl localhost:3000/books`. The containers run in development mode, so `docker compose logs -f` shows debug logs (including
-SQL) and mailer previews are at <http://localhost:3000/rails/mailers>. The image is built from the Dockerfile, so code
-changes need `docker compose up --build`.
+The API is then available on <http://localhost> (port 3000), already filled with the [demo data](#demo-data), for
+example `curl localhost:3000/books`. The containers run in development mode, so `docker compose logs -f` shows debug
+logs (including SQL) and mailer previews are at <http://localhost:3000/rails/mailers>. The image is built from the
+Dockerfile, so code changes need `docker compose up --build`.
 
 Emails aren't sent; they appear in the worker's debug log (`docker compose logs -f jobs`). To send the pending reminders
 without waiting for 8am:
@@ -156,3 +156,17 @@ bin/ci
 GitHub Actions (`.github/workflows/ci.yml`) runs `bin/ci` on every pull request and on pushes to `main`.
 The checks are defined once in `config/ci.rb`, so CI runs exactly what `bin/ci` runs locally.
 The SimpleCov report is uploaded as the `coverage` artifact.
+
+## Possible extensions (next steps)
+
+- Add a staff model with authentication, authorization and audit logging.
+- Add filtering to list endpoints (e.g., filter books by status).
+- Normalize the book model: extract `BookIssue` (title, author, ISBN), which has many `BookCopy` records
+  (physical copies in the library, each identified by its serial number).
+- Consider supporting multiple readers sharing one email address
+  (e.g., a child's or grandparent's account using an adult family member's email).
+- Support multiple locations, or even multiple libraries, in the database.
+- Handle the library's opening hours. Currently, `due_date` may fall on a weekend or holiday when the library is closed.
+- Add endpoints for editing and removing borrowings and for editing books, so that mistakes
+  (e.g., choosing the wrong reader when borrowing) can be corrected through the API.
+- Set up a production environment and deployment strategy with abuse protection (rate limiting, timeouts).
