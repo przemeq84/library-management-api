@@ -2,24 +2,27 @@ require "rails_helper"
 
 RSpec.describe "Books" do
   let(:json) { response.parsed_body }
+  let(:book) { create(:book) }
 
   describe "GET /books" do
-    it "lists kept books with their status and current borrowing, ordered by serial number" do
-      available = create(:book, serial_number: "000002", title: "Emma", author: "Jane Austen")
-      borrowed = create(:book, serial_number: "000001")
-      create(:book, serial_number: "000003").discard
-      borrowing = Borrowing.borrow!(book: borrowed, reader: create(:reader))
+    context "with available, borrowed and deleted books" do
+      let!(:available) { create(:book, serial_number: "000002", title: "Emma", author: "Jane Austen") }
+      let!(:borrowed) { create(:book, serial_number: "000001") }
+      let!(:borrowing) { Borrowing.borrow!(book: borrowed, reader: create(:reader)) }
 
-      get books_path
+      before do
+        create(:book, serial_number: "000003").discard
+        get books_path
+      end
 
-      expect(response).to have_http_status(:ok)
-      expect(json).to eq([
-        book_json(borrowed, status: "borrowed", current_borrowing: borrowing.reload),
-        {
-          "id" => available.id, "serial_number" => "000002", "title" => "Emma", "author" => "Jane Austen",
-          "status" => "available", "current_borrowing" => nil
-        }
-      ])
+      it { expect(response).to have_http_status(:ok) }
+
+      it "lists kept books with their status and current borrowing, ordered by serial number" do
+        expect(json).to eq([
+          book_json(borrowed, status: "borrowed", current_borrowing: borrowing.reload),
+          book_json(available, status: "available")
+        ])
+      end
     end
 
     it_behaves_like "a paginated list", factory: :book, order_by: "serial_number" do
@@ -28,102 +31,105 @@ RSpec.describe "Books" do
   end
 
   describe "GET /books/:id" do
-    it "returns the book with its full borrowing history, newest first" do
-      book = create(:book)
-      former_reader = create(:reader)
-      current_reader = create(:reader)
-      first = create(:borrowing, :returned, book:, reader: former_reader, borrowed_at: 2.months.ago)
-      current = Borrowing.borrow!(book:, reader: current_reader).reload
+    context "with a borrowing history" do
+      let!(:former) { create(:borrowing, :returned, book:, borrowed_at: 2.months.ago) }
+      let!(:current) { Borrowing.borrow!(book:, reader: create(:reader)).reload }
 
-      former_reader.discard!
+      before do
+        former.reader.discard!
+        get book_path(book)
+      end
 
-      get book_path(book)
+      it { expect(response).to have_http_status(:ok) }
 
-      expect(response).to have_http_status(:ok)
-      expect(json).to eq(
-        book_json(book, status: "borrowed", current_borrowing: current, borrowings: [ current, first.reload ])
-      )
+      it "returns the book with its full history, newest first, including deleted readers" do
+        expect(json).to eq(
+          book_json(book, status: "borrowed", current_borrowing: current, borrowings: [ current, former.reload ])
+        )
+      end
     end
 
-    it "returns an empty history for a book that was never borrowed" do
-      book = create(:book)
+    context "when the book was never borrowed" do
+      before { get book_path(book) }
 
-      get book_path(book)
-
-      expect(json).to eq(book_json(book, status: "available", borrowings: []))
+      it "returns an empty history" do
+        expect(json).to eq(book_json(book, status: "available", borrowings: []))
+      end
     end
 
-    it "returns 404 for a deleted book" do
-      book = create(:book)
-      book.discard!
+    context "when the book is deleted" do
+      before do
+        book.discard!
+        get book_path(book)
+      end
 
-      get book_path(book)
-
-      expect(response).to have_http_status(:not_found)
-      expect(json).to eq(error_json("not_found", "Book not found"))
+      it_behaves_like "an error response", :not_found, "Book not found"
     end
   end
 
   describe "POST /books" do
-    it "creates a book" do
-      post books_path, params: { book: { serial_number: "012345", title: "Persuasion", author: "Jane Austen" } }, as: :json
+    let(:book_params) { { serial_number: "012345", title: "Persuasion", author: "Jane Austen" } }
 
-      expect(response).to have_http_status(:created)
-      expect(json).to eq(
-        "id" => Book.sole.id, "serial_number" => "012345", "title" => "Persuasion", "author" => "Jane Austen",
-        "status" => "available", "current_borrowing" => nil
-      )
+    context "with valid attributes" do
+      before { post books_path, params: { book: book_params }, as: :json }
+
+      it { expect(response).to have_http_status(:created) }
+
+      it "returns the created book" do
+        expect(json).to eq(book_json(Book.sole, status: "available"))
+      end
     end
 
-    it "returns 422 for a serial number used by a kept book" do
-      create(:book, serial_number: "012345")
+    context "with a serial number used by a kept book" do
+      before do
+        create(:book, serial_number: "012345")
+        post books_path, params: { book: book_params }, as: :json
+      end
 
-      post books_path, params: { book: { serial_number: "012345", title: "Persuasion", author: "Jane Austen" } }, as: :json
-
-      expect(response).to have_http_status(:unprocessable_content)
-      expect(json).to eq(error_json(
-        "unprocessable_content", "Serial number has already been taken", "serial_number" => [ "has already been taken" ]
-      ))
+      it_behaves_like "an error response", :unprocessable_content, "Serial number has already been taken",
+                      { "serial_number" => [ "has already been taken" ] }
     end
 
-    it "returns 400 without book attributes" do
-      post books_path, params: {}, as: :json
+    context "without book attributes" do
+      before { post books_path, params: {}, as: :json }
 
-      expect(response).to have_http_status(:bad_request)
-      expect(json).to eq(error_json("bad_request", "param is missing or the value is empty or invalid: book"))
+      it_behaves_like "an error response", :bad_request, "param is missing or the value is empty or invalid: book"
     end
   end
 
   describe "DELETE /books/:id" do
-    it "soft-deletes the book" do
-      book = create(:book)
+    context "when the book is available" do
+      before { delete book_path(book) }
 
-      delete book_path(book)
+      it { expect(response).to have_http_status(:no_content) }
 
-      expect(response).to have_http_status(:no_content)
-      expect(response.body).to be_empty
-      expect(book.reload).to be_discarded
+      it { expect(response.body).to be_empty }
+
+      it "soft-deletes the book" do
+        expect(book.reload).to be_discarded
+      end
     end
 
-    it "returns 404 for an already deleted book" do
-      book = create(:book)
-      book.discard!
+    context "when the book is already deleted" do
+      before do
+        book.discard!
+        delete book_path(book)
+      end
 
-      delete book_path(book)
-
-      expect(response).to have_http_status(:not_found)
-      expect(json).to eq(error_json("not_found", "Book not found"))
+      it_behaves_like "an error response", :not_found, "Book not found"
     end
 
-    it "returns 409 while the book is borrowed" do
-      book = create(:book)
-      Borrowing.borrow!(book:, reader: create(:reader))
+    context "when the book is borrowed" do
+      before do
+        Borrowing.borrow!(book:, reader: create(:reader))
+        delete book_path(book)
+      end
 
-      delete book_path(book)
+      it_behaves_like "an error response", :conflict, "Book is currently borrowed"
 
-      expect(response).to have_http_status(:conflict)
-      expect(json).to eq(error_json("conflict", "Book is currently borrowed"))
-      expect(book.reload).to be_kept
+      it "keeps the book" do
+        expect(book.reload).to be_kept
+      end
     end
   end
 end

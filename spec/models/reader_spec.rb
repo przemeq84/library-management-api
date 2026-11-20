@@ -1,56 +1,99 @@
 require "rails_helper"
 
 RSpec.describe Reader do
-  it "is valid with factory attributes" do
-    expect(build(:reader)).to be_valid
-  end
+  describe "validations" do
+    subject(:errors) { reader.tap(&:validate).errors }
 
-  %i[card_number name].each do |attribute|
-    it "requires #{attribute}" do
-      reader = build(:reader, attribute => nil)
+    let(:reader) { build(:reader) }
 
-      expect(reader).not_to be_valid
-      expect(reader.errors[attribute]).to eq([ "can't be blank" ])
+    it "accepts the factory attributes" do
+      expect(errors).to be_empty
     end
-  end
 
-  describe "card_number" do
-    %w[12345 1234567 12a456].each do |value|
-      it "rejects #{value.inspect}" do
-        reader = build(:reader, card_number: value)
+    %i[card_number name].each do |attribute|
+      context "without #{attribute}" do
+        let(:reader) { build(:reader, attribute => nil) }
 
-        expect(reader).not_to be_valid
-        expect(reader.errors[:card_number]).to include("must be a six-digit number")
+        it { expect(errors[attribute]).to eq([ "can't be blank" ]) }
       end
     end
 
-    it "accepts a leading zero and keeps it" do
-      reader = create(:reader, card_number: "012345")
+    %w[12345 1234567 12a456].each do |value|
+      context "with card number #{value.inspect}" do
+        let(:reader) { build(:reader, card_number: value) }
 
-      expect(reader.reload.card_number).to eq("012345")
+        it { expect(errors[:card_number]).to include("must be a six-digit number") }
+      end
     end
 
-    it "must be unique among kept readers" do
-      create(:reader, card_number: "111111")
+    context "when a kept reader has the same card number" do
+      let(:reader) { build(:reader, card_number: "111111") }
 
-      duplicate = build(:reader, card_number: "111111")
+      before { create(:reader, card_number: "111111") }
 
-      expect(duplicate).not_to be_valid
-      expect(duplicate.errors[:card_number]).to include("has already been taken")
+      it { expect(errors[:card_number]).to include("has already been taken") }
     end
 
-    it "can be reused after the reader is discarded" do
-      create(:reader, card_number: "111111").discard
+    context "when a discarded reader has the same card number" do
+      let(:reader) { build(:reader, card_number: "111111") }
 
-      expect(create(:reader, card_number: "111111")).to be_persisted
+      before { create(:reader, card_number: "111111").discard }
+
+      it "allows the card number to be reused" do
+        expect(reader.save).to be(true)
+      end
+    end
+
+    context "without email" do
+      let(:reader) { build(:reader, email: nil) }
+
+      it { expect(errors).to be_empty }
+    end
+
+    context "with a malformed email" do
+      let(:reader) { build(:reader, email: "not-an-email") }
+
+      it { expect(errors[:email]).to include("is invalid") }
+    end
+
+    context "when a kept reader has the same email in another case" do
+      let(:reader) { build(:reader, email: "FOO@bar.com") }
+
+      before { create(:reader, email: "foo@bar.com") }
+
+      it { expect(errors[:email]).to include("has already been taken") }
+    end
+
+    context "when a discarded reader has the same email" do
+      let(:reader) { build(:reader, email: "foo@bar.com") }
+
+      before { create(:reader, email: "foo@bar.com").discard }
+
+      it "allows the email to be reused" do
+        expect(reader.save).to be(true)
+      end
+    end
+
+    context "when another reader has no email either" do
+      let(:reader) { build(:reader, email: nil) }
+
+      before { create(:reader, email: nil) }
+
+      it "allows both to be saved" do
+        expect(reader.save).to be(true)
+      end
     end
   end
 
-  describe "email" do
-    it "is optional" do
-      expect(build(:reader, email: nil)).to be_valid
-    end
+  describe "#card_number" do
+    let(:reader) { create(:reader, card_number: "012345") }
 
+    it "keeps a leading zero" do
+      expect(reader.reload.card_number).to eq("012345")
+    end
+  end
+
+  describe "#email" do
     it "normalizes blank to nil" do
       expect(build(:reader, email: "  ").email).to be_nil
     end
@@ -58,73 +101,51 @@ RSpec.describe Reader do
     it "normalizes case and surrounding whitespace" do
       expect(build(:reader, email: " Foo@Bar.COM ").email).to eq("foo@bar.com")
     end
-
-    it "allows several readers without email" do
-      create(:reader, email: nil)
-
-      expect(create(:reader, email: nil)).to be_persisted
-    end
-
-    it "rejects a malformed address" do
-      reader = build(:reader, email: "not-an-email")
-
-      expect(reader).not_to be_valid
-      expect(reader.errors[:email]).to include("is invalid")
-    end
-
-    it "must be unique among kept readers, ignoring case" do
-      create(:reader, email: "foo@bar.com")
-
-      duplicate = build(:reader, email: "FOO@bar.com")
-
-      expect(duplicate).not_to be_valid
-      expect(duplicate.errors[:email]).to include("has already been taken")
-    end
-
-    it "can be reused after the reader is discarded" do
-      create(:reader, email: "foo@bar.com").discard
-
-      expect(create(:reader, email: "foo@bar.com")).to be_persisted
-    end
   end
 
   describe "database constraints" do
-    it "rejects a duplicate kept email written past validations" do
-      create(:reader, email: "foo@bar.com")
-      reader = create(:reader)
+    let(:reader) { create(:reader) }
 
+    before { create(:reader, email: "foo@bar.com") }
+
+    it "rejects a duplicate kept email written past validations" do
       expect { reader.update_column(:email, "foo@bar.com") }.to raise_error(ActiveRecord::RecordNotUnique)
     end
   end
 
   describe ".kept" do
-    it "excludes discarded readers" do
-      kept = create(:reader)
-      create(:reader).discard
+    let(:kept) { create(:reader) }
 
+    before { create(:reader).discard }
+
+    it "excludes discarded readers" do
       expect(described_class.kept).to contain_exactly(kept)
     end
   end
 
   describe "#discard!" do
-    it "raises ReaderHasActiveBorrowings while the reader has an active borrowing" do
-      reader = create(:reader)
-      Borrowing.borrow!(book: create(:book), reader:)
+    let(:reader) { create(:reader) }
+    let(:book) { create(:book) }
 
-      expect { reader.discard! }
-        .to raise_error(Borrowing::Errors::ReaderHasActiveBorrowings, "Reader has borrowed books that are not returned")
-      expect(reader.reload).to be_kept
+    context "when the reader has a borrowed book" do
+      before { Borrowing.borrow!(book:, reader:) }
+
+      it "raises ReaderHasActiveBorrowings and keeps the reader" do
+        expect { reader.discard! }
+          .to raise_error(Borrowing::Errors::ReaderHasActiveBorrowings, "Reader has borrowed books that are not returned")
+          .and not_change { reader.reload.kept? }.from(true)
+      end
     end
 
-    it "succeeds once all books are returned" do
-      reader = create(:reader)
-      book = create(:book)
-      Borrowing.borrow!(book:, reader:)
-      Borrowing.return!(book:, reader:)
+    context "when all books have been returned" do
+      before do
+        Borrowing.borrow!(book:, reader:)
+        Borrowing.return!(book:, reader:)
+      end
 
-      reader.reload.discard!
-
-      expect(reader).to be_discarded
+      it "discards the reader" do
+        expect { reader.reload.discard! }.to change(reader, :discarded?).from(false).to(true)
+      end
     end
   end
 end

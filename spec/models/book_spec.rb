@@ -1,120 +1,139 @@
 require "rails_helper"
 
 RSpec.describe Book do
-  it "is valid with factory attributes" do
-    expect(build(:book)).to be_valid
-  end
+  describe "validations" do
+    subject(:errors) { book.tap(&:validate).errors }
 
-  %i[serial_number title author].each do |attribute|
-    it "requires #{attribute}" do
-      book = build(:book, attribute => nil)
+    let(:book) { build(:book) }
 
-      expect(book).not_to be_valid
-      expect(book.errors[attribute]).to eq([ "can't be blank" ])
+    it "accepts the factory attributes" do
+      expect(errors).to be_empty
     end
-  end
 
-  describe "serial_number" do
-    %w[12345 1234567 12a456].each do |value|
-      it "rejects #{value.inspect}" do
-        book = build(:book, serial_number: value)
+    %i[serial_number title author].each do |attribute|
+      context "without #{attribute}" do
+        let(:book) { build(:book, attribute => nil) }
 
-        expect(book).not_to be_valid
-        expect(book.errors[:serial_number]).to include("must be a six-digit number")
+        it { expect(errors[attribute]).to eq([ "can't be blank" ]) }
       end
     end
 
-    it "accepts a leading zero and keeps it" do
-      book = create(:book, serial_number: "012345")
+    %w[12345 1234567 12a456].each do |value|
+      context "with serial number #{value.inspect}" do
+        let(:book) { build(:book, serial_number: value) }
 
+        it { expect(errors[:serial_number]).to include("must be a six-digit number") }
+      end
+    end
+
+    context "when a kept book has the same serial number" do
+      let(:book) { build(:book, serial_number: "222222") }
+
+      before { create(:book, serial_number: "222222") }
+
+      it 'fails the validation' do
+        expect(errors[:serial_number]).to include("has already been taken")
+      end
+    end
+
+    context "when a discarded book has the same serial number" do
+      let(:book) { build(:book, serial_number: "222222") }
+
+      before { create(:book, serial_number: "222222").discard }
+
+      it "allows the serial number to be reused" do
+        expect(book.save).to be(true)
+      end
+    end
+  end
+
+  describe "#serial_number" do
+    let(:book) { create(:book, serial_number: "012345") }
+
+    it "keeps a leading zero" do
       expect(book.reload.serial_number).to eq("012345")
-    end
-
-    it "must be unique among kept books" do
-      create(:book, serial_number: "222222")
-
-      duplicate = build(:book, serial_number: "222222")
-
-      expect(duplicate).not_to be_valid
-      expect(duplicate.errors[:serial_number]).to include("has already been taken")
-    end
-
-    it "can be reused after the book is discarded" do
-      create(:book, serial_number: "222222").discard
-
-      expect(create(:book, serial_number: "222222")).to be_persisted
     end
   end
 
   describe "database constraints" do
-    it "rejects a duplicate kept serial number written past validations" do
-      create(:book, serial_number: "222222")
-      book = create(:book)
+    let(:book) { create(:book) }
 
+    before { create(:book, serial_number: "222222") }
+
+    it "rejects a duplicate kept serial number written past validations" do
       expect { book.update_column(:serial_number, "222222") }.to raise_error(ActiveRecord::RecordNotUnique)
     end
   end
 
   describe ".kept" do
-    it "excludes discarded books" do
-      kept = create(:book)
-      create(:book).discard
+    let(:kept) { create(:book) }
 
+    before { create(:book).discard }
+
+    it "excludes discarded books" do
       expect(described_class.kept).to contain_exactly(kept)
     end
   end
 
   describe "#status" do
-    it "is available without an active borrowing" do
-      book = create(:book)
-      create(:borrowing, :returned, book:)
+    subject { book.status }
 
-      expect(book.status).to eq("available")
+    let(:book) { create(:book) }
+
+    context "when the book was only borrowed in the past" do
+      before { create(:borrowing, :returned, book:) }
+
+      it { is_expected.to eq("available") }
     end
 
-    it "is borrowed with an active borrowing" do
-      book = create(:book)
-      create(:borrowing, book:)
+    context "when the book is borrowed" do
+      before { create(:borrowing, book:) }
 
-      expect(book.status).to eq("borrowed")
+      it { is_expected.to eq("borrowed") }
     end
   end
 
   describe "#current_borrowing" do
-    it "returns the active borrowing only" do
-      book = create(:book)
-      create(:borrowing, :returned, book:)
-      active = create(:borrowing, book:)
+    subject { book.current_borrowing }
 
-      expect(book.current_borrowing).to eq(active)
+    let(:book) { create(:book) }
+
+    before { create(:borrowing, :returned, book:) }
+
+    context "when the book is borrowed" do
+      let!(:active) { create(:borrowing, book:) }
+
+      it { is_expected.to eq(active) }
     end
 
-    it "returns nil if book available" do
-      book = create(:book)
-      create(:borrowing, :returned, book:)
-
-      expect(book.current_borrowing).to be_nil
+    context "when the book is available" do
+      it { is_expected.to be_nil }
     end
   end
 
   describe "#discard!" do
-    it "raises BookStillBorrowed while the book is borrowed" do
-      book = create(:book)
-      Borrowing.borrow!(book:, reader: create(:reader))
+    let(:book) { create(:book) }
+    let(:reader) { create(:reader) }
 
-      expect { book.discard! }.to raise_error(Borrowing::Errors::BookStillBorrowed, "Book is currently borrowed")
-      expect(book.reload).to be_kept
+    context "when the book is borrowed" do
+      before { Borrowing.borrow!(book:, reader:) }
+
+      it "raises BookStillBorrowed and keeps the book" do
+        expect { book.discard! }
+          .to raise_error(Borrowing::Errors::BookStillBorrowed, "Book is currently borrowed")
+          .and not_change { book.reload.kept? }.from(true)
+      end
     end
 
-    it "succeeds once the book is returned" do
-      book = create(:book)
-      reader = create(:reader)
-      Borrowing.borrow!(book:, reader:)
-      Borrowing.return!(book:, reader:)
+    context "when the book has been returned" do
+      before do
+        Borrowing.borrow!(book:, reader:)
+        Borrowing.return!(book:, reader:)
+      end
 
-      book.reload.discard!
-
-      expect(book).to be_discarded
+      it "discards the book" do
+        expect { book.reload.discard! }.to change(book, :discarded?).from(false).to(true)
+      end
     end
   end
 end

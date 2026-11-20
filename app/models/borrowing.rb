@@ -30,6 +30,8 @@ class Borrowing < ApplicationRecord
       reader = Reader.kept.find(reader.id)
       raise Errors::AlreadyBorrowed if book.borrowed?
 
+      # All times in the code should be in the library TZ (as set in config.time_zone)
+      # in_time_zone is just to protect against someone passing time in a wrong zone manually
       create!(book:, reader:, borrowed_at: at, due_on: at.in_time_zone.to_date + DUE_AFTER)
     end
   rescue ActiveRecord::RecordNotUnique

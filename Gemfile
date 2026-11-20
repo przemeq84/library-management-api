@@ -52,6 +52,9 @@ group :development, :test do
   # Omakase Ruby styling [https://github.com/rails/rubocop-rails-omakase/]
   gem "rubocop-rails-omakase", require: false
 
+  # RSpec-specific RuboCop cops [https://github.com/rubocop/rubocop-rspec]
+  gem "rubocop-rspec", require: false
+
   # Markdown lint, used only for the 120-character line length [https://github.com/markdownlint/markdownlint]
   gem "mdl", require: false
 

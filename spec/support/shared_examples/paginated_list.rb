@@ -1,8 +1,3 @@
-# Pagination behaviour of a list endpoint.
-#
-#   it_behaves_like "a paginated list", factory: :reader, order_by: "card_number" do
-#     let(:path) { readers_path }
-#   end
 RSpec.shared_examples "a paginated list" do |factory:, order_by:|
   let(:json) { response.parsed_body }
 
@@ -31,27 +26,24 @@ RSpec.shared_examples "a paginated list" do |factory:, order_by:|
   end
 
   [ "", "0", "-1", "abc", "1.5", " 2", "+2", "1_0" ].each do |page|
-    it "rejects page=#{page.inspect} with 400" do
-      get path, params: { page: }
+    context "with page=#{page.inspect}" do
+      before { get path, params: { page: } }
 
-      expect(response).to have_http_status(:bad_request)
-      expect(json).to eq(error_json("bad_request", "page must be a positive integer"))
+      it_behaves_like "an error response", :bad_request, "page must be a positive integer"
     end
   end
 
-  it "rejects a page whose offset exceeds the database integer range with 400" do
-    get path, params: { page: "99999999999999999999" }
+  context "with a page whose offset exceeds the database integer range" do
+    before { get path, params: { page: "99999999999999999999" } }
 
-    expect(response).to have_http_status(:bad_request)
-    expect(json).to eq(error_json("bad_request", "page is out of range"))
+    it_behaves_like "an error response", :bad_request, "page is out of range"
   end
 
   [ "", "0", "101", "-5", "many", "2.5" ].each do |per_page|
-    it "rejects per_page=#{per_page.inspect} with 400" do
-      get path, params: { per_page: }
+    context "with per_page=#{per_page.inspect}" do
+      before { get path, params: { per_page: } }
 
-      expect(response).to have_http_status(:bad_request)
-      expect(json).to eq(error_json("bad_request", "per_page must be an integer between 1 and 100"))
+      it_behaves_like "an error response", :bad_request, "per_page must be an integer between 1 and 100"
     end
   end
 end

@@ -1,73 +1,103 @@
 require "rails_helper"
 
 RSpec.describe SendReminderJob do
+  subject(:perform) { described_class.perform_now(borrowing, kind) }
+
   let(:reader) { create(:reader, email: "ada@example.com") }
   let(:borrowing) { create(:borrowing, reader:) }
 
   before { freeze_time }
 
-  %w[due_soon due_today].each do |kind|
-    describe kind do
-      let(:column) { :"#{kind}_reminder_sent_at" }
+  %w[due_soon due_today].each do |reminder|
+    context "with #{reminder}" do
+      let(:kind) { reminder }
+      let(:sent_at) { borrowing.reload.public_send(:"#{reminder}_reminder_sent_at") }
 
-      it "sends the reminder and records when it was sent" do
-        expect { described_class.perform_now(borrowing, kind) }.to change(ActionMailer::Base.deliveries, :count).by(1)
+      it "sends the reminder" do
+        expect { perform }.to change(ActionMailer::Base.deliveries, :count).by(1)
+      end
+
+      it "addresses the reminder to the reader" do
+        perform
 
         expect(ActionMailer::Base.deliveries.last.to).to eq([ "ada@example.com" ])
-        expect(borrowing.reload.public_send(column)).to eq(Time.current)
       end
 
-      it "sends nothing when the reminder was already sent" do
-        described_class.perform_now(borrowing, kind)
+      it "records when it was sent" do
+        perform
 
-        expect { described_class.perform_now(borrowing.reload, kind) }.not_to change(ActionMailer::Base.deliveries, :count)
+        expect(sent_at).to eq(Time.current)
       end
 
-      it "neither sends nor records a reminder once the book is returned" do
-        Borrowing.return!(book: borrowing.book, reader:)
+      context "when the reminder was already sent" do
+        before do
+          described_class.perform_now(borrowing, kind)
+          borrowing.reload
+        end
 
-        expect { described_class.perform_now(borrowing.reload, kind) }.not_to change(ActionMailer::Base.deliveries, :count)
-        expect(borrowing.reload.public_send(column)).to be_nil
+        it { expect { perform }.not_to change(ActionMailer::Base.deliveries, :count) }
       end
 
-      # A job loads the borrowing fresh when it's deserialized. These specs pass a borrowing loaded earlier
+      context "when the book has been returned" do
+        before do
+          Borrowing.return!(book: borrowing.book, reader:)
+          borrowing.reload
+        end
+
+        it "neither sends email nor records a reminder" do
+          expect { perform }.to not_change(ActionMailer::Base.deliveries, :count).and not_change { sent_at }.from(nil)
+        end
+      end
+
+      context "when the reader has no email" do
+        before { reader.update!(email: nil) }
+
+        it "neither sends email nor records a reminder" do
+          expect { perform }.to not_change(ActionMailer::Base.deliveries, :count).and not_change { sent_at }.from(nil)
+        end
+      end
+
+      # A job loads the borrowing fresh when it's deserialized. These contexts pass a borrowing loaded earlier
       # to simulate the window between that load and the claim, in which a concurrent process acts.
-      context "when another process acts between loading the borrowing and claiming the reminder" do
+      context "when a concurrent job claimed the reminder after the borrowing was loaded" do
+        subject(:perform) { described_class.perform_now(loaded_by_job, kind) }
+
         let!(:loaded_by_job) { Borrowing.find(borrowing.id) }
 
-        it "sends nothing when a concurrent job for the same reminder claimed it first" do
-          Borrowing.where(id: borrowing.id).update_all(column => 1.minute.ago)
+        before { Borrowing.where(id: borrowing.id).update_all("#{reminder}_reminder_sent_at" => 1.minute.ago) }
 
-          expect { described_class.perform_now(loaded_by_job, kind) }.not_to change(ActionMailer::Base.deliveries, :count)
-          expect(borrowing.reload.public_send(column)).to eq(1.minute.ago)
-        end
-
-        it "sends nothing when the book was returned meanwhile" do
-          Borrowing.return!(book: borrowing.book, reader:)
-
-          expect { described_class.perform_now(loaded_by_job, kind) }.not_to change(ActionMailer::Base.deliveries, :count)
-          expect(borrowing.reload.public_send(column)).to be_nil
+        it "sends nothing and keeps the concurrent claim" do
+          expect { perform }.to not_change(ActionMailer::Base.deliveries, :count).and not_change { sent_at }.from(1.minute.ago)
         end
       end
 
-      it "neither sends nor records a reminder when the reader has no email" do
-        reader.update!(email: nil)
+      context "when the book was returned after the borrowing was loaded" do
+        subject(:perform) { described_class.perform_now(loaded_by_job, kind) }
 
-        expect { described_class.perform_now(borrowing.reload, kind) }.not_to change(ActionMailer::Base.deliveries, :count)
-        expect(borrowing.reload.public_send(column)).to be_nil
+        let!(:loaded_by_job) { Borrowing.find(borrowing.id) }
+
+        before { Borrowing.return!(book: borrowing.book, reader:) }
+
+        it "neither sends email nor records a reminder" do
+          expect { perform }.to not_change(ActionMailer::Base.deliveries, :count).and not_change { sent_at }.from(nil)
+        end
       end
 
-      it "releases the claim and retries when delivery fails" do
-        allow(ReminderMailer).to receive(:with).and_raise(Net::SMTPServerBusy, "try again later")
+      context "when delivery fails" do
+        before { allow(ReminderMailer).to receive(:with).and_raise(Net::SMTPServerBusy, "try again later") }
 
-        expect { described_class.perform_now(borrowing, kind) }
-          .to have_enqueued_job(described_class).with(borrowing, kind)
-        expect(borrowing.reload.public_send(column)).to be_nil
+        it "releases the claim and retries" do
+          expect { perform }
+            .to have_enqueued_job(described_class).with(borrowing, kind)
+            .and not_change { sent_at }.from(nil)
+        end
       end
     end
   end
 
-  it "rejects an unknown reminder" do
-    expect { described_class.perform_now(borrowing, "bogus") }.to raise_error(ArgumentError, "unknown reminder: \"bogus\"")
+  context "with an unknown reminder" do
+    let(:kind) { "bogus" }
+
+    it { expect { perform }.to raise_error(ArgumentError, "unknown reminder: \"bogus\"") }
   end
 end

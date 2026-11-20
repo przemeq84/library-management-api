@@ -3,139 +3,160 @@ require "rails_helper"
 RSpec.describe "Book borrowing" do
   let(:json) { response.parsed_body }
   let(:book) { create(:book) }
-  let!(:reader) { create(:reader, card_number: "000123") }
+  let(:reader) { create(:reader) }
 
   describe "POST /books/:id/borrow" do
-    it "lends the book to the reader for 30 days and returns the book" do
-      travel_to Time.zone.local(2026, 5, 20, 9, 15, 30) do
-        post borrow_book_path(book), params: { reader_card_number: "000123" }, as: :json
+    def borrow(params = { reader_card_number: reader.card_number })
+      post borrow_book_path(book), params:, as: :json
+    end
 
-        borrowing_json = {
+    context "when the book is available" do
+      let(:now) { Time.zone.local(2026, 5, 20, 9, 15, 30) }
+      let(:expected_borrowing) do
+        {
           "id" => Borrowing.sole.id,
-          "borrowed_at" => Time.zone.local(2026, 5, 20, 9, 15, 30).iso8601,
+          "borrowed_at" => now.iso8601,
           "due_on" => "2026-06-19",
           "returned_at" => nil,
           "reader" => reader_json(reader)
         }
-        expect(response).to have_http_status(:ok)
+      end
+
+      before do
+        travel_to now
+        borrow
+      end
+
+      it { expect(response).to have_http_status(:ok) }
+
+      it "lends the book to the reader for 30 days and returns the book" do
         expect(json).to eq(
           "id" => book.id, "serial_number" => book.serial_number, "title" => book.title, "author" => book.author,
-          "status" => "borrowed", "current_borrowing" => borrowing_json, "borrowings" => [ borrowing_json ]
+          "status" => "borrowed", "current_borrowing" => expected_borrowing, "borrowings" => [ expected_borrowing ]
         )
+      end
+
+      it "shows the book as borrowed afterwards" do
+        get books_path
+
+        expect(json).to eq([ book_json(book, status: "borrowed", current_borrowing: Borrowing.sole) ])
       end
     end
 
-    it "shows the book as borrowed afterwards" do
-      post borrow_book_path(book), params: { reader_card_number: reader.card_number }, as: :json
+    context "when the book is already borrowed" do
+      before do
+        Borrowing.borrow!(book:, reader: create(:reader))
+        borrow
+      end
 
-      get books_path
-
-      expect(json).to eq([ book_json(book, status: "borrowed", current_borrowing: Borrowing.sole) ])
+      it_behaves_like "an error response", :conflict, "Book is already borrowed"
     end
 
-    it "returns 409 when the book is already borrowed" do
-      Borrowing.borrow!(book:, reader: create(:reader))
+    context "with an unknown reader card number" do
+      before { borrow(reader_card_number: "999999") }
 
-      post borrow_book_path(book), params: { reader_card_number: reader.card_number }, as: :json
-
-      expect(response).to have_http_status(:conflict)
-      expect(json).to eq(error_json("conflict", "Book is already borrowed"))
+      it_behaves_like "an error response", :not_found, "Reader not found"
     end
 
-    it "returns 404 for an unknown reader card number" do
-      post borrow_book_path(book), params: { reader_card_number: "999999" }, as: :json
+    context "when the reader is deleted" do
+      before do
+        reader.discard!
+        borrow
+      end
 
-      expect(response).to have_http_status(:not_found)
-      expect(json).to eq(error_json("not_found", "Reader not found"))
+      it_behaves_like "an error response", :not_found, "Reader not found"
     end
 
-    it "returns 404 for a deleted reader" do
-      reader.discard!
+    context "when the book is deleted" do
+      before do
+        book.discard!
+        borrow
+      end
 
-      post borrow_book_path(book), params: { reader_card_number: reader.card_number }, as: :json
-
-      expect(response).to have_http_status(:not_found)
-      expect(json).to eq(error_json("not_found", "Reader not found"))
+      it_behaves_like "an error response", :not_found, "Book not found"
     end
 
-    it "returns 404 for a deleted book" do
-      book.discard!
+    context "without reader_card_number" do
+      before { borrow({}) }
 
-      post borrow_book_path(book), params: { reader_card_number: reader.card_number }, as: :json
+      it_behaves_like "an error response", :bad_request,
+                      "param is missing or the value is empty or invalid: reader_card_number"
 
-      expect(response).to have_http_status(:not_found)
-      expect(json).to eq(error_json("not_found", "Book not found"))
-    end
-
-    it "returns 400 without reader_card_number" do
-      post borrow_book_path(book), params: {}, as: :json
-
-      expect(response).to have_http_status(:bad_request)
-      expect(json).to eq(error_json("bad_request", "param is missing or the value is empty or invalid: reader_card_number"))
-      expect(Borrowing.count).to eq(0)
+      it "records no borrowing" do
+        expect(Borrowing.count).to eq(0)
+      end
     end
   end
 
   describe "POST /books/:id/return" do
-    it "ends the borrowing and returns the book" do
-      borrowing = Borrowing.borrow!(book:, reader:, at: Time.zone.local(2026, 5, 1, 10, 0))
+    def return_book(params = { reader_card_number: reader.card_number })
+      post return_book_path(book), params:, as: :json
+    end
 
-      travel_to Time.zone.local(2026, 5, 20, 16, 45, 10) do
-        post return_book_path(book), params: { reader_card_number: reader.card_number }, as: :json
+    context "when the reader has the book" do
+      let(:borrowed_at) { Time.zone.local(2026, 5, 1, 10, 0) }
+      let!(:borrowing) { Borrowing.borrow!(book:, reader:, at: borrowed_at) }
 
-        expect(response).to have_http_status(:ok)
+      before do
+        travel_to Time.zone.local(2026, 5, 20, 16, 45, 10)
+        return_book
+      end
+
+      it { expect(response).to have_http_status(:ok) }
+
+      it "ends the borrowing and returns the book" do
         expect(json).to eq(
           "id" => book.id, "serial_number" => book.serial_number, "title" => book.title, "author" => book.author,
           "status" => "available", "current_borrowing" => nil,
           "borrowings" => [ {
             "id" => borrowing.id,
-            "borrowed_at" => Time.zone.local(2026, 5, 1, 10, 0).iso8601,
+            "borrowed_at" => borrowed_at.iso8601,
             "due_on" => "2026-05-31",
-            "returned_at" => Time.zone.local(2026, 5, 20, 16, 45, 10).iso8601,
+            "returned_at" => Time.current.iso8601,
             "reader" => reader_json(reader)
           } ]
         )
       end
     end
 
-    it "returns 409 when the book is not borrowed" do
-      post return_book_path(book), params: { reader_card_number: reader.card_number }, as: :json
+    context "when the book is not borrowed" do
+      before { return_book }
 
-      expect(response).to have_http_status(:conflict)
-      expect(json).to eq(error_json("conflict", "Book is not borrowed"))
+      it_behaves_like "an error response", :conflict, "Book is not borrowed"
     end
 
-    it "returns 409 when another reader borrowed the book" do
-      borrowing = Borrowing.borrow!(book:, reader: create(:reader))
+    context "when another reader borrowed the book" do
+      let!(:borrowing) { Borrowing.borrow!(book:, reader: create(:reader)) }
 
-      post return_book_path(book), params: { reader_card_number: reader.card_number }, as: :json
+      before { return_book }
 
-      expect(response).to have_http_status(:conflict)
-      expect(json).to eq(error_json("conflict", "Book borrowed by another reader"))
-      expect(borrowing.reload).to be_active
+      it_behaves_like "an error response", :conflict, "Book borrowed by another reader"
+
+      it "keeps the borrowing active" do
+        expect(borrowing.reload).to be_active
+      end
     end
 
-    it "returns 404 for an unknown reader card number" do
-      post return_book_path(book), params: { reader_card_number: "999999" }, as: :json
+    context "with an unknown reader card number" do
+      before { return_book(reader_card_number: "999999") }
 
-      expect(response).to have_http_status(:not_found)
-      expect(json).to eq(error_json("not_found", "Reader not found"))
+      it_behaves_like "an error response", :not_found, "Reader not found"
     end
 
-    it "returns 404 for a deleted book" do
-      book.discard!
+    context "when the book is deleted" do
+      before do
+        book.discard!
+        return_book
+      end
 
-      post return_book_path(book), params: { reader_card_number: reader.card_number }, as: :json
-
-      expect(response).to have_http_status(:not_found)
-      expect(json).to eq(error_json("not_found", "Book not found"))
+      it_behaves_like "an error response", :not_found, "Book not found"
     end
 
-    it "returns 400 without reader_card_number" do
-      post return_book_path(book), params: {}, as: :json
+    context "without reader_card_number" do
+      before { return_book({}) }
 
-      expect(response).to have_http_status(:bad_request)
-      expect(json).to eq(error_json("bad_request", "param is missing or the value is empty or invalid: reader_card_number"))
+      it_behaves_like "an error response", :bad_request,
+                      "param is missing or the value is empty or invalid: reader_card_number"
     end
   end
 end
