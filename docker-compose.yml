@@ -36,7 +36,7 @@ services:
     <<: *app
     # The entrypoint runs `db:prepare` for the server: creates the databases and loads the seeds on first boot.
     ports:
-      - "80:80"
+      - "3000:80"
     depends_on:
       db:
         condition: service_healthy

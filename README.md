@@ -12,9 +12,9 @@ Key design decisions are recorded in [DecisionLog.md](DecisionLog.md).
 docker compose up --build
 ```
 
-The API is then available on <http://localhost> (port 80), already filled with the [demo data](#demo-data), for example
-`curl localhost/books`. The containers run in development mode, so `docker compose logs -f` shows debug logs (including
-SQL) and mailer previews are at <http://localhost/rails/mailers>. The image is built from the Dockerfile, so code
+The API is then available on <http://localhost> (port 3000), already filled with the [demo data](#demo-data), for example
+`curl localhost:3000/books`. The containers run in development mode, so `docker compose logs -f` shows debug logs (including
+SQL) and mailer previews are at <http://localhost:3000/rails/mailers>. The image is built from the Dockerfile, so code
 changes need `docker compose up --build`.
 
 Emails aren't sent; they appear in the worker's debug log (`docker compose logs -f jobs`). To send the pending reminders
@@ -126,7 +126,7 @@ without an email are skipped. Run it by hand with:
 bin/rails runner 'SendDueDateRemindersJob.perform_now("due_soon")'
 ```
 
-In development, preview both emails at <http://localhost:3000/rails/mailers/reminder_mailer>.
+In development, preview all emails at <http://localhost/rails/mailers/>.
 
 ## Running tests
 
