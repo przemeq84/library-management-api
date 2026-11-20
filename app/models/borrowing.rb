@@ -54,8 +54,15 @@ class Borrowing < ApplicationRecord
   end
 
   def claim_reminder(reminder)
-    self.class.active.with_reader_email.where(id:, reminder.sent_at_column => nil)
-        .update_all(reminder.sent_at_column => Time.current) == 1
+    # Locks the row first: the UPDATE below joins readers, and with a join PostgreSQL
+    # re-checks a concurrent claim only against the updated row, not the joined copy,
+    # so without the lock both claims could succeed (inconsistent snapshot, see
+    # https://www.postgresql.org/docs/current/transaction-iso.html#XACT-READ-COMMITTED).
+    self.transaction do
+      Borrowing.lock("FOR UPDATE").find_by(id:)
+      self.class.active.with_reader_email.where(id:, reminder.sent_at_column => nil)
+          .update_all(reminder.sent_at_column => Time.current) == 1
+    end
   end
 
   def release_reminder(reminder)
