@@ -15,10 +15,10 @@ RSpec.describe "Readers" do
       it { expect(response).to have_http_status(:ok) }
 
       it "lists kept readers ordered by card number" do
-        expect(json).to eq([
+        expect(json).to eq(page_json([
           { "card_number" => "000001", "name" => "Alice", "email" => "alice@example.com" },
           { "card_number" => "000003", "name" => "Carol", "email" => nil }
-        ])
+        ]))
       end
     end
 

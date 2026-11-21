@@ -26,6 +26,10 @@ module ApiJson
     json
   end
 
+  def page_json(data, page: 1, per_page: 25, total: data.size)
+    { "data" => data, "meta" => { "page" => page, "per_page" => per_page, "total" => total } }
+  end
+
   def error_json(status, message, details = nil)
     { "error" => { "status" => status, "message" => message, "details" => details } }
   end

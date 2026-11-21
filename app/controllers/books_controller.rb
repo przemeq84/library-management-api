@@ -5,7 +5,7 @@ class BooksController < ApplicationController
   def index
     books = paginate(Book.kept.strict_loading.includes(current_borrowing: :reader).order(:serial_number))
 
-    render json: BookBlueprint.render_as_hash(books)
+    render json: CollectionBlueprint.render_page(books, blueprint: BookBlueprint)
   end
 
   def show

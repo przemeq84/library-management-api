@@ -39,7 +39,7 @@ RSpec.describe "Book borrowing" do
       it "shows the book as borrowed afterwards" do
         get books_path
 
-        expect(json).to eq([ book_json(book, status: "borrowed", current_borrowing: Borrowing.sole) ])
+        expect(json).to eq(page_json([ book_json(book, status: "borrowed", current_borrowing: Borrowing.sole) ]))
       end
     end
 

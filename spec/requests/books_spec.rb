@@ -18,10 +18,10 @@ RSpec.describe "Books" do
       it { expect(response).to have_http_status(:ok) }
 
       it "lists kept books with their status and current borrowing, ordered by serial number" do
-        expect(json).to eq([
+        expect(json).to eq(page_json([
           book_json(borrowed, status: "borrowed", current_borrowing: borrowing.reload),
           book_json(available, status: "available")
-        ])
+        ]))
       end
     end
 
