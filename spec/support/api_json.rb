@@ -1,7 +1,7 @@
 # Expected API representations, so request specs compare whole response bodies with `eq`.
 module ApiJson
   def reader_json(reader)
-    { "id" => reader.id, "card_number" => reader.card_number, "name" => reader.name, "email" => reader.email }
+    { "card_number" => reader.card_number, "name" => reader.name, "email" => reader.email }
   end
 
   def borrowing_json(borrowing)
@@ -16,7 +16,6 @@ module ApiJson
 
   def book_json(book, status:, current_borrowing: nil, borrowings: nil)
     json = {
-      "id" => book.id,
       "serial_number" => book.serial_number,
       "title" => book.title,
       "author" => book.author,

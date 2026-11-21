@@ -1,7 +1,7 @@
 class BookBlueprint < Blueprinter::Base
-  identifier :id
+  identifier :serial_number
 
-  fields :serial_number, :title, :author, :status
+  fields :title, :author, :status
 
   association :current_borrowing, blueprint: BorrowingBlueprint
 

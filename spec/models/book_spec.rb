@@ -41,10 +41,14 @@ RSpec.describe Book do
 
       before { create(:book, serial_number: "222222").discard }
 
-      it "allows the serial number to be reused" do
-        expect(book.save).to be(true)
-      end
+      it { expect(errors[:serial_number]).to include("has already been taken") }
     end
+  end
+
+  describe "#to_param" do
+    subject { build(:book, serial_number: "012345").to_param }
+
+    it { is_expected.to eq("012345") }
   end
 
   describe "#serial_number" do
@@ -58,10 +62,20 @@ RSpec.describe Book do
   describe "database constraints" do
     let(:book) { create(:book) }
 
-    before { create(:book, serial_number: "222222") }
+    context "when a kept book has the same serial number" do
+      before { create(:book, serial_number: "222222") }
 
-    it "rejects a duplicate kept serial number written past validations" do
-      expect { book.update_column(:serial_number, "222222") }.to raise_error(ActiveRecord::RecordNotUnique)
+      it "rejects it when written past validations" do
+        expect { book.update_column(:serial_number, "222222") }.to raise_error(ActiveRecord::RecordNotUnique)
+      end
+    end
+
+    context "when a discarded book has the same serial number" do
+      before { create(:book, serial_number: "222222").discard }
+
+      it "rejects it when written past validations" do
+        expect { book.update_column(:serial_number, "222222") }.to raise_error(ActiveRecord::RecordNotUnique)
+      end
     end
   end
 

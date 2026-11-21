@@ -14,7 +14,7 @@ class ReadersController < ApplicationController
   end
 
   def destroy
-    Reader.kept.find(params[:id]).discard!
+    Reader.kept.find_by!(card_number: params[:card_number]).discard!
 
     head :no_content
   end

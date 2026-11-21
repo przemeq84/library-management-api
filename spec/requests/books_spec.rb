@@ -30,7 +30,7 @@ RSpec.describe "Books" do
     end
   end
 
-  describe "GET /books/:id" do
+  describe "GET /books/:serial_number" do
     context "with a borrowing history" do
       let!(:former) { create(:borrowing, :returned, book:, borrowed_at: 2.months.ago) }
       let!(:current) { Borrowing.borrow!(book:, reader: create(:reader)).reload }
@@ -90,6 +90,16 @@ RSpec.describe "Books" do
                       { "serial_number" => [ "has already been taken" ] }
     end
 
+    context "with a serial number used by a deleted book" do
+      before do
+        create(:book, serial_number: "012345").discard!
+        post books_path, params: { book: book_params }, as: :json
+      end
+
+      it_behaves_like "an error response", :unprocessable_content, "Serial number has already been taken",
+                      { "serial_number" => [ "has already been taken" ] }
+    end
+
     context "without book attributes" do
       before { post books_path, params: {}, as: :json }
 
@@ -97,7 +107,7 @@ RSpec.describe "Books" do
     end
   end
 
-  describe "DELETE /books/:id" do
+  describe "DELETE /books/:serial_number" do
     context "when the book is available" do
       before { delete book_path(book) }
 

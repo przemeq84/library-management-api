@@ -7,8 +7,8 @@ Rails.application.routes.draw do
 
   mount LetterOpenerWeb::Engine, at: "/letter_opener"
 
-  resources :readers, only: %i[index create destroy]
-  resources :books, only: %i[index show create destroy] do
+  resources :readers, param: :card_number, only: %i[index create destroy]
+  resources :books, param: :serial_number, only: %i[index show create destroy] do
     member do
       post :borrow, action: :borrow_book
       post :return, action: :return_book # `return` is a Ruby keyword

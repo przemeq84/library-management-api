@@ -1,6 +1,7 @@
 class BooksController < ApplicationController
   include Paginated
 
+  before_action :set_book_from_serial_number, only: [ :destroy, :borrow_book, :return_book ]
   def index
     books = paginate(Book.kept.strict_loading.includes(current_borrowing: :reader).order(:serial_number))
 
@@ -18,19 +19,19 @@ class BooksController < ApplicationController
   end
 
   def destroy
-    Book.kept.find(params[:id]).discard!
+    @book.discard!
 
     head :no_content
   end
 
   def borrow_book
-    Borrowing.borrow!(book: Book.kept.find(params[:id]), reader: reader_from_card_number)
+    Borrowing.borrow!(book: @book, reader: reader_from_card_number)
 
     render_detailed_book
   end
 
   def return_book
-    Borrowing.return!(book: Book.kept.find(params[:id]), reader: reader_from_card_number)
+    Borrowing.return!(book: @book, reader: reader_from_card_number)
 
     render_detailed_book
   end
@@ -38,7 +39,9 @@ class BooksController < ApplicationController
   private
 
   def render_detailed_book
-    book = Book.kept.strict_loading.includes(current_borrowing: :reader, borrowings_chronological: :reader).find(params[:id])
+    book = Book.kept.strict_loading
+               .includes(current_borrowing: :reader, borrowings_chronological: :reader)
+               .find_by!(serial_number: params[:serial_number])
 
     render json: BookBlueprint.render_as_hash(book, view: :detailed)
   end
@@ -49,5 +52,9 @@ class BooksController < ApplicationController
 
   def book_params
     params.expect(book: %i[serial_number title author])
+  end
+
+  def set_book_from_serial_number
+    @book = Book.kept.find_by!(serial_number: params[:serial_number])
   end
 end

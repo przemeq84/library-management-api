@@ -217,3 +217,10 @@ previews (built from fake records) don't show. letter_opener_web needs no extra 
 Files are enough for a development inbox. The app only runs in a private Docker container, so production uses the same
 inbox and needs no SMTP server or login; exposing it publicly would require real delivery or protecting
 `/letter_opener`.
+
+
+
+## New ones
+
+* Book and Reader uses codes as ID. I's unique, always present and should not be reused and user knows it better than internal id.
+* Codes cannot be reused - we use them as ID, so we cannot use them for new book or reader. That's OK as archived books, users should not release their code in real life

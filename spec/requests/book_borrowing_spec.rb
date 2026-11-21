@@ -5,7 +5,7 @@ RSpec.describe "Book borrowing" do
   let(:book) { create(:book) }
   let(:reader) { create(:reader) }
 
-  describe "POST /books/:id/borrow" do
+  describe "POST /books/:serial_number/borrow" do
     def borrow(params = { reader_card_number: reader.card_number })
       post borrow_book_path(book), params:, as: :json
     end
@@ -31,7 +31,7 @@ RSpec.describe "Book borrowing" do
 
       it "lends the book to the reader for 30 days and returns the book" do
         expect(json).to eq(
-          "id" => book.id, "serial_number" => book.serial_number, "title" => book.title, "author" => book.author,
+          "serial_number" => book.serial_number, "title" => book.title, "author" => book.author,
           "status" => "borrowed", "current_borrowing" => expected_borrowing, "borrowings" => [ expected_borrowing ]
         )
       end
@@ -88,7 +88,7 @@ RSpec.describe "Book borrowing" do
     end
   end
 
-  describe "POST /books/:id/return" do
+  describe "POST /books/:serial_number/return" do
     def return_book(params = { reader_card_number: reader.card_number })
       post return_book_path(book), params:, as: :json
     end
@@ -106,7 +106,7 @@ RSpec.describe "Book borrowing" do
 
       it "ends the borrowing and returns the book" do
         expect(json).to eq(
-          "id" => book.id, "serial_number" => book.serial_number, "title" => book.title, "author" => book.author,
+          "serial_number" => book.serial_number, "title" => book.title, "author" => book.author,
           "status" => "available", "current_borrowing" => nil,
           "borrowings" => [ {
             "id" => borrowing.id,

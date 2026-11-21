@@ -5,10 +5,9 @@ RSpec.describe "Readers" do
 
   describe "GET /readers" do
     context "with kept and deleted readers" do
-      let!(:carol) { create(:reader, card_number: "000003", name: "Carol", email: nil) }
-      let!(:alice) { create(:reader, card_number: "000001", name: "Alice", email: "alice@example.com") }
-
       before do
+        create(:reader, card_number: "000003", name: "Carol", email: nil)
+        create(:reader, card_number: "000001", name: "Alice", email: "alice@example.com")
         create(:reader, card_number: "000002").discard
         get readers_path
       end
@@ -17,8 +16,8 @@ RSpec.describe "Readers" do
 
       it "lists kept readers ordered by card number" do
         expect(json).to eq([
-          { "id" => alice.id, "card_number" => "000001", "name" => "Alice", "email" => "alice@example.com" },
-          { "id" => carol.id, "card_number" => "000003", "name" => "Carol", "email" => nil }
+          { "card_number" => "000001", "name" => "Alice", "email" => "alice@example.com" },
+          { "card_number" => "000003", "name" => "Carol", "email" => nil }
         ])
       end
     end
@@ -39,7 +38,7 @@ RSpec.describe "Readers" do
       it { expect(response).to have_http_status(:created) }
 
       it "returns the reader with a normalized email" do
-        expect(json).to eq("id" => Reader.sole.id, "card_number" => "123456", "name" => "Ada", "email" => "ada@example.com")
+        expect(json).to eq("card_number" => "123456", "name" => "Ada", "email" => "ada@example.com")
       end
     end
 
@@ -49,7 +48,7 @@ RSpec.describe "Readers" do
       it { expect(response).to have_http_status(:created) }
 
       it "returns the reader without an email" do
-        expect(json).to eq("id" => Reader.sole.id, "card_number" => "123456", "name" => "Ada", "email" => nil)
+        expect(json).to eq("card_number" => "123456", "name" => "Ada", "email" => nil)
       end
     end
 
@@ -82,7 +81,7 @@ RSpec.describe "Readers" do
       it { expect(response).to have_http_status(:created) }
 
       it "ignores them" do
-        expect(json).to eq("id" => Reader.sole.id, "card_number" => "123456", "name" => "Ada", "email" => nil)
+        expect(json).to eq("card_number" => "123456", "name" => "Ada", "email" => nil)
       end
     end
 
@@ -103,7 +102,7 @@ RSpec.describe "Readers" do
     end
   end
 
-  describe "DELETE /readers/:id" do
+  describe "DELETE /readers/:card_number" do
     let(:reader) { create(:reader) }
 
     context "when the reader has no borrowed books" do

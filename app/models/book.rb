@@ -8,9 +8,13 @@ class Book < ApplicationRecord
   validates :title, :author, presence: true
   validates :serial_number, presence: true,
                             format: { with: /\A\d{6}\z/, message: "must be a six-digit number", allow_blank: true },
-                            uniqueness: { conditions: -> { kept } }
+                            uniqueness: true
 
   before_discard :ensure_not_borrowed
+
+  def to_param
+    serial_number
+  end
 
   def borrowed?
     current_borrowing.present?
