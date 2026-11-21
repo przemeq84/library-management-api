@@ -14,6 +14,7 @@ Rails.application.routes.draw do
       post :return, action: :return_book # `return` is a Ruby keyword
     end
   end
+  resources :borrowings, only: %i[index]
 
   # Defines the root path route ("/")
   # root "posts#index"
