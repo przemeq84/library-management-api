@@ -35,7 +35,7 @@ now = Time.current
 pride_and_prejudice = books.fetch("Pride and Prejudice")
 if pride_and_prejudice.borrowings.none?
   Borrowing.borrow!(book: pride_and_prejudice, reader: readers.fetch("Mario"), at: now - 50.days)
-  Borrowing.return!(book: pride_and_prejudice, reader: readers.fetch("Mario"), at: now - 30.days)
+  Borrowing.return!(book: pride_and_prejudice, at: now - 30.days)
   Borrowing.borrow!(book: pride_and_prejudice, reader: readers.fetch("Lara Croft"), at: now - 27.days)
 end
 

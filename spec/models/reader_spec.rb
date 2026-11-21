@@ -154,7 +154,7 @@ RSpec.describe Reader do
     context "when all books have been returned" do
       before do
         Borrowing.borrow!(book:, reader:)
-        Borrowing.return!(book:, reader:)
+        Borrowing.return!(book:)
       end
 
       it "discards the reader" do

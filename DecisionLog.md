@@ -230,3 +230,5 @@ inbox and needs no SMTP server or login; exposing it publicly would require real
 * Limit number of borrowings included in the book api to 3 newest (we don't have paging on sub collection). All borrowings can be seen in borrowings resource.
 
 * Keep status in DB. It make it faster to have it stored (we read more often than update), it's easier to filter by status if needed.
+
+* Reader check in return is not needed. It creates additional friction (e.g., book found on the shelf and we don't know who returned it) and does not really guard against any problem.

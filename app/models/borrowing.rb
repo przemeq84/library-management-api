@@ -36,11 +36,10 @@ class Borrowing < ApplicationRecord
     raise Errors::AlreadyBorrowed
   end
 
-  def self.return!(book:, reader:, at: Time.current)
+  def self.return!(book:, at: Time.current)
     transaction do
       book = Book.lock.find(book.id)
       borrowing = book.current_borrowing or raise Errors::NotBorrowed
-      raise Errors::NotBorrowed, "Book borrowed by another reader" unless borrowing.reader_id == reader.id
 
       borrowing.update!(returned_at: at, status: "returned")
       book.available!

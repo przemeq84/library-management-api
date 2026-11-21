@@ -90,11 +90,11 @@ RSpec.describe "Book borrowing" do
   end
 
   describe "POST /books/:serial_number/return" do
-    def return_book(params = { reader_card_number: reader.card_number })
-      post return_book_path(book), params:, as: :json
+    def return_book
+      post return_book_path(book), as: :json
     end
 
-    context "when the reader has the book" do
+    context "when the book is borrowed" do
       let(:borrowed_at) { Time.zone.local(2026, 5, 1, 10, 0) }
       let!(:borrowing) { Borrowing.borrow!(book:, reader:, at: borrowed_at) }
 
@@ -127,24 +127,6 @@ RSpec.describe "Book borrowing" do
       it_behaves_like "an error response", :conflict, "Book is not borrowed"
     end
 
-    context "when another reader borrowed the book" do
-      let!(:borrowing) { Borrowing.borrow!(book:, reader: create(:reader)) }
-
-      before { return_book }
-
-      it_behaves_like "an error response", :conflict, "Book borrowed by another reader"
-
-      it "keeps the borrowing active" do
-        expect(borrowing.reload).to be_active
-      end
-    end
-
-    context "with an unknown reader card number" do
-      before { return_book(reader_card_number: "999999") }
-
-      it_behaves_like "an error response", :not_found, "Reader not found"
-    end
-
     context "when the book is deleted" do
       before do
         book.discard!
@@ -152,13 +134,6 @@ RSpec.describe "Book borrowing" do
       end
 
       it_behaves_like "an error response", :not_found, "Book not found"
-    end
-
-    context "without reader_card_number" do
-      before { return_book({}) }
-
-      it_behaves_like "an error response", :bad_request,
-                      "param is missing or the value is empty or invalid: reader_card_number"
     end
   end
 end

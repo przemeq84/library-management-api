@@ -31,7 +31,7 @@ class BooksController < ApplicationController
   end
 
   def return_book
-    Borrowing.return!(book: @book, reader: reader_from_card_number)
+    Borrowing.return!(book: @book)
 
     render_detailed_book
   end

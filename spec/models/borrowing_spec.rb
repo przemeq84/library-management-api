@@ -80,10 +80,10 @@ RSpec.describe Borrowing do
   end
 
   describe ".return!" do
-    subject(:borrowing) { described_class.return!(book:, reader:) }
+    subject(:borrowing) { described_class.return!(book:) }
 
-    context "when the reader has the book" do
-      subject(:borrowing) { described_class.return!(book:, reader:, at:) }
+    context "when the book is borrowed" do
+      subject(:borrowing) { described_class.return!(book:, at:) }
 
       let(:at) { 3.days.from_now }
 
@@ -121,16 +121,6 @@ RSpec.describe Borrowing do
 
     context "when the book is available" do
       it { expect { borrowing }.to raise_error(Borrowing::Errors::NotBorrowed, "Book is not borrowed") }
-    end
-
-    context "when the book is borrowed by another reader" do
-      let!(:other_borrowing) { described_class.borrow!(book:, reader: create(:reader)) }
-
-      it "raises NotBorrowed and keeps the borrowing active and keeps borrowing active" do
-        expect { borrowing }
-          .to raise_error(Borrowing::Errors::NotBorrowed, "Book borrowed by another reader")
-          .and not_change { other_borrowing.reload.active? }.from(true)
-      end
     end
   end
 

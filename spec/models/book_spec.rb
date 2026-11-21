@@ -102,7 +102,7 @@ RSpec.describe Book do
     context "when the book was only borrowed in the past" do
       before do
         Borrowing.borrow!(book:, reader:)
-        Borrowing.return!(book:, reader:)
+        Borrowing.return!(book:)
       end
 
       it { is_expected.to eq("available") }
@@ -166,7 +166,7 @@ RSpec.describe Book do
     context "when the book has been returned" do
       before do
         Borrowing.borrow!(book:, reader:)
-        Borrowing.return!(book:, reader:)
+        Borrowing.return!(book:)
       end
 
       it "discards the book" do
