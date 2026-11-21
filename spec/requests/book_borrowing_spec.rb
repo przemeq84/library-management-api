@@ -32,7 +32,8 @@ RSpec.describe "Book borrowing" do
       it "lends the book to the reader for 30 days and returns the book" do
         expect(json).to eq(
           "serial_number" => book.serial_number, "title" => book.title, "author" => book.author,
-          "status" => "borrowed", "current_borrowing" => expected_borrowing, "borrowings" => [ expected_borrowing ]
+          "status" => "borrowed", "current_borrowing" => expected_borrowing,
+          "recent_borrowings" => [ expected_borrowing ], "borrowings_count" => 1
         )
       end
 
@@ -107,8 +108,8 @@ RSpec.describe "Book borrowing" do
       it "ends the borrowing and returns the book" do
         expect(json).to eq(
           "serial_number" => book.serial_number, "title" => book.title, "author" => book.author,
-          "status" => "available", "current_borrowing" => nil,
-          "borrowings" => [ {
+          "status" => "available", "current_borrowing" => nil, "borrowings_count" => 1,
+          "recent_borrowings" => [ {
             "id" => borrowing.id,
             "borrowed_at" => borrowed_at.iso8601,
             "due_on" => "2026-05-31",

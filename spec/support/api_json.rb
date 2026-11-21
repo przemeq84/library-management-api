@@ -14,7 +14,9 @@ module ApiJson
     }
   end
 
-  def book_json(book, status:, current_borrowing: nil, borrowings: nil)
+  # Pass recent_borrowings for the detailed view (GET /books/:serial_number and borrow/return responses).
+  def book_json(book, status:, current_borrowing: nil, recent_borrowings: nil,
+                borrowings_count: recent_borrowings&.size)
     json = {
       "serial_number" => book.serial_number,
       "title" => book.title,
@@ -22,7 +24,10 @@ module ApiJson
       "status" => status,
       "current_borrowing" => current_borrowing && borrowing_json(current_borrowing)
     }
-    json["borrowings"] = borrowings.map { |borrowing| borrowing_json(borrowing) } if borrowings
+    if recent_borrowings
+      json["recent_borrowings"] = recent_borrowings.map { |borrowing| borrowing_json(borrowing) }
+      json["borrowings_count"] = borrowings_count
+    end
     json
   end
 

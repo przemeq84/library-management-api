@@ -125,16 +125,19 @@ RSpec.describe Book do
     end
   end
 
-  describe "#borrowings_chronological" do
+  describe "#recent_borrowings_chronological" do
     let(:book) { create(:book) }
     let!(:older) { create(:borrowing, :returned, book:, borrowed_at: 2.months.ago) }
     let!(:current) { create(:borrowing, book:, borrowed_at: 1.day.ago) }
-    let!(:oldest) { create(:borrowing, :returned, book:, borrowed_at: 3.months.ago) }
+    let!(:old) { create(:borrowing, :returned, book:, borrowed_at: 3.months.ago) }
 
-    before { create(:borrowing, :returned, borrowed_at: 1.week.ago) }
+    before do
+      create(:borrowing, :returned, book:, borrowed_at: 4.months.ago)
+      create(:borrowing, :returned, borrowed_at: 1.week.ago)
+    end
 
-    it "lists the book's borrowings, newest first" do
-      expect(book.borrowings_chronological).to eq([ current, older, oldest ])
+    it "lists the book's 3 newest borrowings, newest first" do
+      expect(book.recent_borrowings_chronological).to eq([ current, older, old ])
     end
   end
 

@@ -226,3 +226,5 @@ inbox and needs no SMTP server or login; exposing it publicly would require real
 * Codes cannot be reused - we use them as ID, so we cannot use them for new book or reader. That's OK as archived books, users should not release their code in real life
 
 * Add envelope, so paging is easier (we can display paging in client and know if we need to page)
+
+* Limit number of borrowings included in the book api to 3 newest (we don't have paging on sub collection). All borrowings can be seen in borrowings resource.

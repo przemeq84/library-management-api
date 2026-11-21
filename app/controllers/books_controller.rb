@@ -40,10 +40,12 @@ class BooksController < ApplicationController
 
   def render_detailed_book
     book = Book.kept.strict_loading
-               .includes(current_borrowing: :reader, borrowings_chronological: :reader)
+               .includes(current_borrowing: :reader, recent_borrowings_chronological: :reader)
                .find_by!(serial_number: params[:serial_number])
 
-    render json: BookBlueprint.render_as_hash(book, view: :detailed)
+    borrowings_count = book.borrowings.count
+
+    render json: BookBlueprint.render_as_hash(book, view: :detailed, borrowings_count:)
   end
 
   def reader_from_card_number

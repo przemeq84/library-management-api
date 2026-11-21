@@ -42,10 +42,25 @@ RSpec.describe "Books" do
 
       it { expect(response).to have_http_status(:ok) }
 
-      it "returns the book with its full history, newest first, including deleted readers" do
+      it "returns the book with its history, newest first, including deleted readers" do
         expect(json).to eq(
-          book_json(book, status: "borrowed", current_borrowing: current, borrowings: [ current, former.reload ])
+          book_json(book, status: "borrowed", current_borrowing: current, recent_borrowings: [ current, former.reload ])
         )
+      end
+    end
+
+    context "with more than 3 borrowings" do
+      let!(:recent) do
+        [ 1.week, 2.weeks, 3.weeks ].map { |age| create(:borrowing, :returned, book:, borrowed_at: age.ago) }
+      end
+
+      before do
+        create(:borrowing, :returned, book:, borrowed_at: 1.month.ago)
+        get book_path(book)
+      end
+
+      it "returns the 3 newest borrowings and the total count" do
+        expect(json).to eq(book_json(book, status: "available", recent_borrowings: recent, borrowings_count: 4))
       end
     end
 
@@ -53,7 +68,7 @@ RSpec.describe "Books" do
       before { get book_path(book) }
 
       it "returns an empty history" do
-        expect(json).to eq(book_json(book, status: "available", borrowings: []))
+        expect(json).to eq(book_json(book, status: "available", recent_borrowings: []))
       end
     end
 
