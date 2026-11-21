@@ -9,7 +9,7 @@ class BooksController < ApplicationController
   end
 
   def show
-    render_detailed_book
+    render_detailed_book(include_discarded: true)
   end
 
   def create
@@ -38,10 +38,11 @@ class BooksController < ApplicationController
 
   private
 
-  def render_detailed_book
-    book = Book.kept.strict_loading
-               .includes(current_borrowing: :reader, recent_borrowings_chronological: :reader)
-               .find_by!(serial_number: params[:serial_number])
+  def render_detailed_book(include_discarded: false)
+    books = include_discarded ? Book.all : Book.kept
+    book = books.strict_loading
+                .includes(current_borrowing: :reader, recent_borrowings_chronological: :reader)
+                .find_by!(serial_number: params[:serial_number])
 
     borrowings_count = book.borrowings.count
 

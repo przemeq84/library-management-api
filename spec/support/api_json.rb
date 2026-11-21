@@ -1,7 +1,12 @@
 # Expected API representations, so request specs compare whole response bodies with `eq`.
 module ApiJson
   def reader_json(reader)
-    { "card_number" => reader.card_number, "name" => reader.name, "email" => reader.email }
+    {
+      "card_number" => reader.card_number,
+      "name" => reader.name,
+      "email" => reader.email,
+      "archived" => reader.discarded?
+    }
   end
 
   def borrowing_json(borrowing)
@@ -21,7 +26,8 @@ module ApiJson
       "serial_number" => book.serial_number,
       "title" => book.title,
       "author" => book.author,
-      "status" => status
+      "status" => status,
+      "archived" => book.discarded?
     }
     if recent_borrowings
       json["recent_borrowings"] = recent_borrowings.map { |borrowing| borrowing_json(borrowing) }

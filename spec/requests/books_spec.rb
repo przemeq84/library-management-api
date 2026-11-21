@@ -78,6 +78,16 @@ RSpec.describe "Books" do
         get book_path(book)
       end
 
+      it { expect(response).to have_http_status(:ok) }
+
+      it "returns the book marked as archived" do
+        expect(json).to eq(book_json(book, status: "available", recent_borrowings: []))
+      end
+    end
+
+    context "with an unknown serial number" do
+      before { get book_path(serial_number: "999999") }
+
       it_behaves_like "an error response", :not_found, "Book not found"
     end
   end

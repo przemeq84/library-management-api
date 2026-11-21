@@ -218,17 +218,22 @@ Files are enough for a development inbox. The app only runs in a private Docker 
 inbox and needs no SMTP server or login; exposing it publicly would require real delivery or protecting
 `/letter_opener`.
 
-
-
 ## New ones
 
-* Book and Reader uses codes as ID. I's unique, always present and should not be reused and user knows it better than internal id.
-* Codes cannot be reused - we use them as ID, so we cannot use them for new book or reader. That's OK as archived books, users should not release their code in real life
+- Book and Reader uses codes as ID. I's unique, always present and should not be reused and user knows it better than
+  internal id.
+- Codes cannot be reused - we use them as ID, so we cannot use them for new book or reader. That's OK as archived books,
+  users should not release their code in real life
 
-* Add envelope, so paging is easier (we can display paging in client and know if we need to page)
+- Add envelope, so paging is easier (we can display paging in client and know if we need to page)
 
-* Limit number of borrowings included in the book api to 3 newest (we don't have paging on sub collection). All borrowings can be seen in borrowings resource.
+- Limit number of borrowings included in the book api to 3 newest (we don't have paging on sub collection). All
+  borrowings can be seen in borrowings resource.
 
-* Keep status in DB. It make it faster to have it stored (we read more often than update), it's easier to filter by status if needed.
+- Keep status in DB. It make it faster to have it stored (we read more often than update), it's easier to filter by
+  status if needed.
 
-* Reader check in return is not needed. It creates additional friction (e.g., book found on the shelf and we don't know who returned it) and does not really guard against any problem.
+- Reader check in return is not needed. It creates additional friction (e.g., book found on the shelf and we don't know
+  who returned it) and does not really guard against any problem.
+
+- Show archived records in show endpoints. We disallow resuing ids, so it's nice to see the archived objects.

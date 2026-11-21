@@ -16,8 +16,8 @@ RSpec.describe "Readers" do
 
       it "lists kept readers ordered by card number" do
         expect(json).to eq(page_json([
-          { "card_number" => "000001", "name" => "Alice", "email" => "alice@example.com" },
-          { "card_number" => "000003", "name" => "Carol", "email" => nil }
+          { "card_number" => "000001", "name" => "Alice", "email" => "alice@example.com", "archived" => false },
+          { "card_number" => "000003", "name" => "Carol", "email" => nil, "archived" => false }
         ]))
       end
     end
@@ -38,7 +38,7 @@ RSpec.describe "Readers" do
       it { expect(response).to have_http_status(:created) }
 
       it "returns the reader with a normalized email" do
-        expect(json).to eq("card_number" => "123456", "name" => "Ada", "email" => "ada@example.com")
+        expect(json).to eq("card_number" => "123456", "name" => "Ada", "email" => "ada@example.com", "archived" => false)
       end
     end
 
@@ -48,7 +48,7 @@ RSpec.describe "Readers" do
       it { expect(response).to have_http_status(:created) }
 
       it "returns the reader without an email" do
-        expect(json).to eq("card_number" => "123456", "name" => "Ada", "email" => nil)
+        expect(json).to eq("card_number" => "123456", "name" => "Ada", "email" => nil, "archived" => false)
       end
     end
 
@@ -81,7 +81,7 @@ RSpec.describe "Readers" do
       it { expect(response).to have_http_status(:created) }
 
       it "ignores them" do
-        expect(json).to eq("card_number" => "123456", "name" => "Ada", "email" => nil)
+        expect(json).to eq("card_number" => "123456", "name" => "Ada", "email" => nil, "archived" => false)
       end
     end
 
