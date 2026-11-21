@@ -10,7 +10,7 @@ RSpec.describe ReminderMailer do
   shared_examples "a reminder that is no longer relevant" do
     context "when the book has been returned" do
       let(:borrowing) do
-        create(:borrowing, book:, reader:,
+        create(:borrowing, :returned, book:, reader:,
                borrowed_at: Time.zone.local(2026, 5, 20, 9, 0),
                due_on: Date.new(2026, 6, 19),
                returned_at: Time.zone.local(2026, 5, 25, 14, 0))

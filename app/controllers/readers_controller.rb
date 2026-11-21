@@ -4,7 +4,7 @@ class ReadersController < ApplicationController
   def index
     readers = paginate(Reader.kept.order(:card_number))
 
-    render json: ReaderBlueprint.render_as_hash(readers)
+    render json: CollectionBlueprint.render_page(readers, blueprint: ReaderBlueprint)
   end
 
   def create
@@ -14,7 +14,7 @@ class ReadersController < ApplicationController
   end
 
   def destroy
-    Reader.kept.find(params[:id]).discard!
+    Reader.kept.find_by!(card_number: params[:card_number]).discard!
 
     head :no_content
   end

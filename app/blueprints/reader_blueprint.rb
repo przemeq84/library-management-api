@@ -1,5 +1,7 @@
 class ReaderBlueprint < Blueprinter::Base
-  identifier :id
+  identifier :card_number
 
-  fields :card_number, :name, :email
+  fields :name, :email
+
+  field :discarded?, name: :archived
 end

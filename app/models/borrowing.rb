@@ -8,9 +8,10 @@ class Borrowing < ApplicationRecord
   belongs_to :book
   belongs_to :reader
 
+  enum :status, active: 0, returned: 1
+
   validates :borrowed_at, :due_on, presence: true
 
-  scope :active, -> { where(returned_at: nil) }
   scope :chronological, -> { order(borrowed_at: :desc) }
   scope :with_reader_email, -> { joins(:reader).where.not(readers: { email: nil }) }
 
@@ -27,25 +28,23 @@ class Borrowing < ApplicationRecord
 
       # All times in the code should be in the library TZ (as set in config.time_zone)
       # in_time_zone is just to protect against someone passing time in a wrong zone manually
-      create!(book:, reader:, borrowed_at: at, due_on: at.in_time_zone.to_date + DUE_AFTER)
+      borrowing = create!(book:, reader:, borrowed_at: at, due_on: at.in_time_zone.to_date + DUE_AFTER)
+      book.borrowed!
+      borrowing
     end
   rescue ActiveRecord::RecordNotUnique
     raise Errors::AlreadyBorrowed
   end
 
-  def self.return!(book:, reader:, at: Time.current)
+  def self.return!(book:, at: Time.current)
     transaction do
       book = Book.lock.find(book.id)
       borrowing = book.current_borrowing or raise Errors::NotBorrowed
-      raise Errors::NotBorrowed, "Book borrowed by another reader" unless borrowing.reader_id == reader.id
 
-      borrowing.update!(returned_at: at)
+      borrowing.update!(returned_at: at, status: "returned")
+      book.available!
       borrowing
     end
-  end
-
-  def active?
-    returned_at.nil?
   end
 
   # A reminder only makes sense while the book is out and the reader can be emailed.

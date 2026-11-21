@@ -6,7 +6,15 @@ RSpec.shared_examples "a paginated list" do |factory:, order_by:|
 
     get path, params: { page: 2, per_page: 2 }
 
-    expect(json.pluck(order_by)).to eq(values[2, 2])
+    expect(json["data"].pluck(order_by)).to eq(values[2, 2])
+  end
+
+  it "describes the page in meta" do
+    create_list(factory, 5)
+
+    get path, params: { page: 2, per_page: 2 }
+
+    expect(json["meta"]).to eq("page" => 2, "per_page" => 2, "total" => 5)
   end
 
   it "returns 25 records per page by default" do
@@ -14,7 +22,7 @@ RSpec.shared_examples "a paginated list" do |factory:, order_by:|
 
     get path
 
-    expect(json.size).to eq(25)
+    expect(json["data"].size).to eq(25)
   end
 
   it "accepts per_page up to 100" do
@@ -22,7 +30,7 @@ RSpec.shared_examples "a paginated list" do |factory:, order_by:|
 
     get path, params: { per_page: 100 }
 
-    expect(json.size).to eq(100)
+    expect(json["data"].size).to eq(100)
   end
 
   [ "", "0", "-1", "abc", "1.5", " 2", "+2", "1_0" ].each do |page|

@@ -40,7 +40,7 @@ RSpec.describe SendReminderJob do
 
       context "when the book has been returned" do
         before do
-          Borrowing.return!(book: borrowing.book, reader:)
+          Borrowing.return!(book: borrowing.book)
           borrowing.reload
         end
 
@@ -76,7 +76,7 @@ RSpec.describe SendReminderJob do
 
         let!(:loaded_by_job) { Borrowing.find(borrowing.id) }
 
-        before { Borrowing.return!(book: borrowing.book, reader:) }
+        before { Borrowing.return!(book: borrowing.book) }
 
         it "neither sends email nor records a reminder" do
           expect { perform }.to not_change(ActionMailer::Base.deliveries, :count).and not_change { sent_at }.from(nil)
