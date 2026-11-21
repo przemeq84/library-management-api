@@ -8,18 +8,18 @@ RSpec.describe "Books" do
     context "with available, borrowed and deleted books" do
       let!(:available) { create(:book, serial_number: "000002", title: "Emma", author: "Jane Austen") }
       let!(:borrowed) { create(:book, serial_number: "000001") }
-      let!(:borrowing) { Borrowing.borrow!(book: borrowed, reader: create(:reader)) }
 
       before do
+        Borrowing.borrow!(book: borrowed, reader: create(:reader))
         create(:book, serial_number: "000003").discard
         get books_path
       end
 
       it { expect(response).to have_http_status(:ok) }
 
-      it "lists kept books with their status and current borrowing, ordered by serial number" do
+      it "lists kept books with their status, ordered by serial number" do
         expect(json).to eq(page_json([
-          book_json(borrowed, status: "borrowed", current_borrowing: borrowing.reload),
+          book_json(borrowed, status: "borrowed"),
           book_json(available, status: "available")
         ]))
       end
@@ -44,7 +44,7 @@ RSpec.describe "Books" do
 
       it "returns the book with its history, newest first, including deleted readers" do
         expect(json).to eq(
-          book_json(book, status: "borrowed", current_borrowing: current, recent_borrowings: [ current, former.reload ])
+          book_json(book, status: "borrowed", recent_borrowings: [ current, former.reload ])
         )
       end
     end

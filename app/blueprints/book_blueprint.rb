@@ -3,8 +3,6 @@ class BookBlueprint < Blueprinter::Base
 
   fields :title, :author, :status
 
-  association :current_borrowing, blueprint: BorrowingBlueprint
-
   view :detailed do
     association :recent_borrowings_chronological, name: :recent_borrowings, blueprint: BorrowingBlueprint
 

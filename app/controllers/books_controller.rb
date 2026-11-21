@@ -3,7 +3,7 @@ class BooksController < ApplicationController
 
   before_action :set_book_from_serial_number, only: [ :destroy, :borrow_book, :return_book ]
   def index
-    books = paginate(Book.kept.strict_loading.includes(current_borrowing: :reader).order(:serial_number))
+    books = paginate(Book.kept.strict_loading.order(:serial_number))
 
     render json: CollectionBlueprint.render_page(books, blueprint: BookBlueprint)
   end
