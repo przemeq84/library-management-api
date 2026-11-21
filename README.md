@@ -6,6 +6,11 @@ Built with Ruby on Rails (API-only), PostgreSQL and Solid Queue.
 
 Key design decisions are recorded in [DecisionLog.md](DecisionLog.md).
 
+> [!NOTE]
+> I noticed a few flaws in the current API design and fixed them in
+> [PR #3](https://github.com/przemeq84/library-management-api/pull/3) (`api-improvements` branch). Since I made the
+> fixes after the deadline, I decided not to merge the PR.
+
 ## Quick start (Docker)
 
 ```bash
