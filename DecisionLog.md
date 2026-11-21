@@ -92,6 +92,17 @@ complexity. They can easily be extracted into a service if needed in the future.
 Borrowing history must keep pointing at books and readers after they are removed from circulation. Explicit `.kept`
 makes it obvious where deleted records are excluded.
 
+### Serial and card numbers are never reused
+
+*Chosen*: plain unique indexes and uniqueness validations on `books.serial_number` and `readers.card_number`, covering
+deleted records too.
+
+*Alternatives considered*: uniqueness among kept records only (partial unique indexes on `discarded_at IS NULL`).
+
+The numbers are the API's identifiers ([see below](#serial-and-card-numbers-as-resource-identifiers)), so reusing one
+would make an archived book's or reader's URL point at a different record. This assumes the library doesn't reissue the
+label of a removed book or the card of a removed reader.
+
 ### Six-digit numbers stored as strings
 
 *Chosen*: `books.serial_number` and `readers.card_number` are strings validated in the models with `/\A\d{6}\z/`.
@@ -109,6 +120,27 @@ The format needs no database-level check, as all writes go through the models.
 
 Not every patron of an offline library has, or wants to share, an email address.
 
+### Stored statuses on books and borrowings
+
+*Chosen*: integer enums `books.status` (`available`, `borrowed`) and `borrowings.status` (`active`, `returned`), updated
+by `Borrowing.borrow!` and `Borrowing.return!` in the same transaction as the borrowing.
+
+*Alternatives considered*: deriving both from `borrowings.returned_at` and the book's active borrowing.
+
+Statuses are read far more often than they change, and a column lets book lists show and later filter by status
+without loading borrowings. The cost is duplicated state that only `borrow!` and `return!` may write.
+
+### Return without a reader check
+
+*Chosen*: `Borrowing.return!(book:)` ends the book's active borrowing whoever brings it back, so
+`POST /books/:serial_number/return` takes no body.
+
+*Alternatives considered*: requiring `reader_card_number` and answering 409 when another reader has the book.
+
+The check adds friction without protecting against a real problem: a book found on a shelf or in the return box can't
+be matched to the reader who brought it back. The borrowing history still records who borrowed the book. It makes
+`borrow` and `return` endpoints' arguments different, but easier to use.
+
 ## HTTP API
 
 ### Plain Rails controllers instead of Grape
@@ -122,26 +154,62 @@ This is a simple internal API used by library staff, so it doesn't need Grape's 
 documentation, and plain controllers keep the stack conventional for any Rails developer. If API usage evolves (public
 clients, several versions), the endpoints can be migrated to Grape or a versioned namespace later.
 
+### Serial and card numbers as resource identifiers
+
+*Chosen*: routes take `:serial_number` and `:card_number` (`to_param` returns them), and the JSON identifies books and
+readers by them; database IDs are exposed only for borrowings.
+
+*Alternatives considered*: database IDs in URLs and JSON; UUIDs.
+
+The numbers are always present, unique and [never reused](#serial-and-card-numbers-are-never-reused), and staff read
+them from the book label or the reader's card, while a database ID means nothing to them. Borrowings have no natural
+identifier, so they keep their ID.
+
 ### Borrow and return as actions on books
 
-*Chosen*: `POST /books/:id/borrow` and `POST /books/:id/return` member routes on `BooksController`.
+*Chosen*: `POST /books/:serial_number/borrow` and `POST /books/:serial_number/return` member routes on
+`BooksController`.
 
 *Alternatives considered*: a `borrowings` resource (`POST /borrowings`, `PATCH /borrowings/:id`); a nested singular
-`/books/:id/borrowing` resource with `create`/`destroy`.
+`/books/:serial_number/borrowing` resource with `create`/`destroy`.
 
 Staff think in terms of "borrow this book" and "return this book", and both operations start from the book in hand.
-API clients don't need to know the borrowing ID to return a book. Both return 200: they are action verbs on an
-existing book rather than REST creation of a new resource, so 201 doesn't apply.
+API clients don't need to know the borrowing ID, or [the reader](#return-without-a-reader-check), to return a book.
+Both return 200: they are action verbs on an existing book rather than REST creation of a new resource, so 201 doesn't
+apply.
 
-### Plain arrays for paginated lists
+### Envelope for paginated lists
 
-*Chosen*: list endpoints return a bare JSON array, no envelope and no total count.
+*Chosen*: list endpoints return `{ "data": [...], "meta": { "page", "per_page", "total" } }`, built by
+`CollectionBlueprint`.
 
-*Alternatives considered*: a `{ data, meta }` envelope with `total_count` / `total_pages`; pagination headers (`Link`,
-`X-Total-Count`).
+*Alternatives considered*: a bare JSON array without totals; pagination headers (`Link`, `X-Total-Count`).
 
-This is an internal API for library staff, and no client needs totals yet; skipping them also avoids a `COUNT(*)` per
-request. Adding an envelope or headers later is a small, coordinated change with the known clients.
+With the total, a client can show paging controls and knows whether another page exists without requesting it. The cost
+is a `COUNT(*)` per request, which is negligible at a library's scale.
+
+### Recent borrowings on the book, full history in /borrowings
+
+*Chosen*: the book detail (`GET /books/:serial_number` and the borrow/return responses) embeds the 3 newest borrowings
+as `recent_borrowings` plus `borrowings_count`; the full history is paginated at
+`GET /borrowings?book_serial_number=…`. Book lists show only `status`.
+
+*Alternatives considered*: embedding the full history; paginating the history inside the book resource; a nested
+`/books/:serial_number/borrowings` route.
+
+A book's history grows without limit, and it's difficult to paginate embedded collection. While the newest borrowings
+answer the usual desk question of who has or last had the book. A top-level `borrowings` resource filtered by a query
+parameter can later accept other filters (e.g., reader or status) without new routes.
+
+### Archived records in show and history endpoints
+
+*Chosen*: `GET /books/:serial_number` and `GET /borrowings` also return deleted books, and books and readers carry an
+`archived` flag. Lists, borrowing, returning and deleting see only kept records.
+
+*Alternatives considered*: answering 404 for deleted records everywhere.
+
+Serial and card numbers are never reused, so a URL still identifies its archived record, and showing it explains why
+the number can't be used again.
 
 ### Unknown request attributes are ignored
 
@@ -156,8 +224,8 @@ still can't set fields like `discarded_at`.
 
 ### strict_loading on serialized queries
 
-*Chosen*: the queries whose records are serialized with associations (`BooksController#index` and `#show`) use
-`.strict_loading` alongside `includes`.
+*Chosen*: the queries whose records are serialized (`BooksController` and `BorrowingsController#index`) use
+`.strict_loading` alongside `includes` / `preload`.
 
 *Alternatives considered*: a test-only query counter; the `bullet` gem; `strict_loading_by_default` for every model.
 
@@ -217,23 +285,3 @@ previews (built from fake records) don't show. letter_opener_web needs no extra 
 Files are enough for a development inbox. The app only runs in a private Docker container, so production uses the same
 inbox and needs no SMTP server or login; exposing it publicly would require real delivery or protecting
 `/letter_opener`.
-
-## New ones
-
-- Book and Reader uses codes as ID. I's unique, always present and should not be reused and user knows it better than
-  internal id.
-- Codes cannot be reused - we use them as ID, so we cannot use them for new book or reader. That's OK as archived books,
-  users should not release their code in real life
-
-- Add envelope, so paging is easier (we can display paging in client and know if we need to page)
-
-- Limit number of borrowings included in the book api to 3 newest (we don't have paging on sub collection). All
-  borrowings can be seen in borrowings resource.
-
-- Keep status in DB. It make it faster to have it stored (we read more often than update), it's easier to filter by
-  status if needed.
-
-- Reader check in return is not needed. It creates additional friction (e.g., book found on the shelf and we don't know
-  who returned it) and does not really guard against any problem.
-
-- Show archived records in show endpoints. We disallow resuing ids, so it's nice to see the archived objects.

@@ -64,25 +64,39 @@ JSON over HTTP; send request bodies with `Content-Type: application/json`. There
 
 ### Endpoints
 
-| Endpoint                 | Body                                 | Errors        | Notes                                     |
-| ------------------------ | ------------------------------------ | ------------- | ----------------------------------------- |
-| `GET /readers`           |                                      | 400           | Ordered by card number, paginated         |
-| `POST /readers`          | `reader: card_number, name, email`   | 400, 422      | `email` is optional                       |
-| `DELETE /readers/:id`    |                                      | 404, 409      | Soft delete; 409 while a book is borrowed |
-| `GET /books`             |                                      | 400           | Ordered by serial number, paginated       |
-| `GET /books/:id`         |                                      | 404           | History newest first                      |
-| `POST /books`            | `book: serial_number, title, author` | 400, 422      |                                           |
-| `DELETE /books/:id`      |                                      | 404, 409      | Soft delete; 409 while borrowed           |
-| `POST /books/:id/borrow` | `reader_card_number`                 | 400, 404, 409 | Due in 30 days                            |
-| `POST /books/:id/return` | `reader_card_number`                 | 400, 404, 409 | 409 unless this reader has it             |
+| Endpoint                              | Body                                 | Errors        | Notes                                       |
+| ------------------------------------- | ------------------------------------ | ------------- | ------------------------------------------- |
+| `GET /readers`                        |                                      | 400           | Ordered by card number, paginated           |
+| `POST /readers`                       | `reader: card_number, name, email`   | 400, 422      | `email` is optional                         |
+| `DELETE /readers/:card_number`        |                                      | 404, 409      | Soft delete; 409 while a book is borrowed   |
+| `GET /books`                          |                                      | 400           | Ordered by serial number, paginated         |
+| `GET /books/:serial_number`           |                                      | 404           | 3 newest borrowings; archived books too     |
+| `POST /books`                         | `book: serial_number, title, author` | 400, 422      |                                             |
+| `DELETE /books/:serial_number`        |                                      | 404, 409      | Soft delete; 409 while borrowed             |
+| `POST /books/:serial_number/borrow`   | `reader_card_number`                 | 400, 404, 409 | Due in 30 days                              |
+| `POST /books/:serial_number/return`   |                                      | 404, 409      | 409 unless borrowed; any reader can return  |
+| `GET /borrowings?book_serial_number=` |                                      | 400, 404      | Newest first, paginated; archived books too |
 
 Request bodies are JSON objects, e.g., `{ "reader": { "card_number": "100007", "name": "Ada" } }` or
 `{ "reader_card_number": "100001" }`.
 
+Books and readers are identified by their `serial_number` and `card_number`. These stay taken after a book or reader is
+deleted, so they can't be reused. Deleted books and readers carry `"archived": true` and appear only in the book detail
+and borrowing histories.
+
+The book detail (`GET /books/:serial_number`, and the borrow and return responses) includes the 3 newest borrowings as
+`recent_borrowings` and their total as `borrowings_count`. The full history is at
+`GET /borrowings?book_serial_number=200001`.
+
 ### Pagination
 
-List endpoints return a plain JSON array. Use `page` (positive integer, default `1`) and `per_page` (integer from `1`
-to `100`, default `25`).
+List endpoints return the page in `data` and its position in `meta`:
+
+```json
+{ "data": [...], "meta": { "page": 1, "per_page": 25, "total": 42 } }
+```
+
+Use `page` (positive integer, default `1`) and `per_page` (integer from `1` to `100`, default `25`).
 
 ### Errors
 
