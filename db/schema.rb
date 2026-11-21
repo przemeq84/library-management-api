@@ -10,7 +10,7 @@
 #
 # It's strongly recommended that you check this file into your version control system.
 
-ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
+ActiveRecord::Schema[8.1].define(version: 2026_11_21_130000) do
   # These are extensions that must be enabled in order to support this database
   enable_extension "pg_catalog.plpgsql"
 
@@ -21,6 +21,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.datetime "discarded_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "status", default: 0, null: false
     t.index ["serial_number"], name: "index_books_on_serial_number_uniq", unique: true
   end
 
@@ -34,6 +35,7 @@ ActiveRecord::Schema[8.1].define(version: 2026_11_21_120000) do
     t.datetime "due_today_reminder_sent_at"
     t.datetime "created_at", null: false
     t.datetime "updated_at", null: false
+    t.integer "status", default: 0, null: false
     t.index ["book_id", "borrowed_at"], name: "index_borrowings_on_book_id_and_borrowed_at"
     t.index ["book_id"], name: "index_borrowings_on_book_id_active", unique: true, where: "(returned_at IS NULL)"
     t.index ["due_on"], name: "index_borrowings_on_due_on"

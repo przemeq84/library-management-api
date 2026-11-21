@@ -90,18 +90,26 @@ RSpec.describe Book do
   end
 
   describe "#status" do
-    subject { book.status }
+    subject { book.reload.status }
 
     let(:book) { create(:book) }
+    let(:reader) { create(:reader) }
+
+    context "when the book was never borrowed" do
+      it { is_expected.to eq("available") }
+    end
 
     context "when the book was only borrowed in the past" do
-      before { create(:borrowing, :returned, book:) }
+      before do
+        Borrowing.borrow!(book:, reader:)
+        Borrowing.return!(book:, reader:)
+      end
 
       it { is_expected.to eq("available") }
     end
 
     context "when the book is borrowed" do
-      before { create(:borrowing, book:) }
+      before { Borrowing.borrow!(book:, reader:) }
 
       it { is_expected.to eq("borrowed") }
     end

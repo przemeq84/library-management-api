@@ -5,6 +5,8 @@ class Book < ApplicationRecord
   has_many :recent_borrowings_chronological, -> { chronological.limit(3) }, class_name: "Borrowing"
   has_one :current_borrowing, -> { active }, class_name: "Borrowing"
 
+  enum :status, available: 0, borrowed: 1
+
   validates :title, :author, presence: true
   validates :serial_number, presence: true,
                             format: { with: /\A\d{6}\z/, message: "must be a six-digit number", allow_blank: true },
@@ -14,14 +16,6 @@ class Book < ApplicationRecord
 
   def to_param
     serial_number
-  end
-
-  def borrowed?
-    current_borrowing.present?
-  end
-
-  def status
-    borrowed? ? "borrowed" : "available"
   end
 
   private

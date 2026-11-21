@@ -7,6 +7,7 @@ module ApiJson
   def borrowing_json(borrowing)
     {
       "id" => borrowing.id,
+      "status" => borrowing.status,
       "borrowed_at" => borrowing.borrowed_at.iso8601,
       "due_on" => borrowing.due_on.iso8601,
       "returned_at" => borrowing.returned_at&.iso8601,

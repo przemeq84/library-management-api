@@ -15,6 +15,7 @@ RSpec.describe "Book borrowing" do
       let(:expected_borrowing) do
         {
           "id" => Borrowing.sole.id,
+          "status" => "active",
           "borrowed_at" => now.iso8601,
           "due_on" => "2026-06-19",
           "returned_at" => nil,
@@ -111,6 +112,7 @@ RSpec.describe "Book borrowing" do
           "status" => "available", "current_borrowing" => nil, "borrowings_count" => 1,
           "recent_borrowings" => [ {
             "id" => borrowing.id,
+            "status" => "returned",
             "borrowed_at" => borrowed_at.iso8601,
             "due_on" => "2026-05-31",
             "returned_at" => Time.current.iso8601,

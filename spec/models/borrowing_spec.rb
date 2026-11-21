@@ -17,6 +17,8 @@ RSpec.describe Borrowing do
       it "records the borrowing with a due date 30 days later" do
         expect(borrowing).to have_attributes(book:, reader:, borrowed_at: at, due_on: Date.new(2026, 4, 9), returned_at: nil)
       end
+
+      it { is_expected.to be_active }
     end
 
     context "without a borrow time" do
@@ -90,6 +92,8 @@ RSpec.describe Borrowing do
       it "records the return time" do
         expect(borrowing.returned_at).to be_within(1.second).of(at)
       end
+
+      it { is_expected.to be_returned }
 
       it "makes the book available again" do
         expect { borrowing }.to change { book.reload.status }.from("borrowed").to("available")

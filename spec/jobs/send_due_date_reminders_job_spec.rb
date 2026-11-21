@@ -9,8 +9,8 @@ RSpec.describe SendDueDateRemindersJob do
     travel_to(today.in_time_zone.change(hour: 8))
   end
 
-  def borrowing_due(due_on, **attributes)
-    create(:borrowing, borrowed_at: (due_on - 30).in_time_zone, due_on:, **attributes)
+  def borrowing_due(due_on, *traits, **attributes)
+    create(:borrowing, *traits, borrowed_at: (due_on - 30).in_time_zone, due_on:, **attributes)
   end
 
   context "with due_soon" do
@@ -50,7 +50,7 @@ RSpec.describe SendDueDateRemindersJob do
     end
 
     context "when the book is returned" do
-      before { borrowing_due(today + 2, returned_at: Time.current) }
+      before { borrowing_due(today + 2, :returned, returned_at: Time.current) }
 
       it { expect { perform }.not_to have_enqueued_job(SendReminderJob) }
     end
@@ -95,7 +95,7 @@ RSpec.describe SendDueDateRemindersJob do
     end
 
     context "when the book is returned" do
-      before { borrowing_due(today, returned_at: Time.current) }
+      before { borrowing_due(today, :returned, returned_at: Time.current) }
 
       it { expect { perform }.not_to have_enqueued_job(SendReminderJob) }
     end
