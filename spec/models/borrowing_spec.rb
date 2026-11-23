@@ -17,6 +17,8 @@ RSpec.describe Borrowing do
       it "records the borrowing with a due date 30 days later" do
         expect(borrowing).to have_attributes(book:, reader:, borrowed_at: at, due_on: Date.new(2026, 4, 9), returned_at: nil)
       end
+
+      it { is_expected.to be_active }
     end
 
     context "without a borrow time" do
@@ -78,10 +80,10 @@ RSpec.describe Borrowing do
   end
 
   describe ".return!" do
-    subject(:borrowing) { described_class.return!(book:, reader:) }
+    subject(:borrowing) { described_class.return!(book:) }
 
-    context "when the reader has the book" do
-      subject(:borrowing) { described_class.return!(book:, reader:, at:) }
+    context "when the book is borrowed" do
+      subject(:borrowing) { described_class.return!(book:, at:) }
 
       let(:at) { 3.days.from_now }
 
@@ -90,6 +92,8 @@ RSpec.describe Borrowing do
       it "records the return time" do
         expect(borrowing.returned_at).to be_within(1.second).of(at)
       end
+
+      it { is_expected.to be_returned }
 
       it "makes the book available again" do
         expect { borrowing }.to change { book.reload.status }.from("borrowed").to("available")
@@ -117,16 +121,6 @@ RSpec.describe Borrowing do
 
     context "when the book is available" do
       it { expect { borrowing }.to raise_error(Borrowing::Errors::NotBorrowed, "Book is not borrowed") }
-    end
-
-    context "when the book is borrowed by another reader" do
-      let!(:other_borrowing) { described_class.borrow!(book:, reader: create(:reader)) }
-
-      it "raises NotBorrowed and keeps the borrowing active and keeps borrowing active" do
-        expect { borrowing }
-          .to raise_error(Borrowing::Errors::NotBorrowed, "Book borrowed by another reader")
-          .and not_change { other_borrowing.reload.active? }.from(true)
-      end
     end
   end
 

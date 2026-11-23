@@ -8,20 +8,20 @@ RSpec.describe "Books" do
     context "with available, borrowed and deleted books" do
       let!(:available) { create(:book, serial_number: "000002", title: "Emma", author: "Jane Austen") }
       let!(:borrowed) { create(:book, serial_number: "000001") }
-      let!(:borrowing) { Borrowing.borrow!(book: borrowed, reader: create(:reader)) }
 
       before do
+        Borrowing.borrow!(book: borrowed, reader: create(:reader))
         create(:book, serial_number: "000003").discard
         get books_path
       end
 
       it { expect(response).to have_http_status(:ok) }
 
-      it "lists kept books with their status and current borrowing, ordered by serial number" do
-        expect(json).to eq([
-          book_json(borrowed, status: "borrowed", current_borrowing: borrowing.reload),
+      it "lists kept books with their status, ordered by serial number" do
+        expect(json).to eq(page_json([
+          book_json(borrowed, status: "borrowed"),
           book_json(available, status: "available")
-        ])
+        ]))
       end
     end
 
@@ -30,7 +30,7 @@ RSpec.describe "Books" do
     end
   end
 
-  describe "GET /books/:id" do
+  describe "GET /books/:serial_number" do
     context "with a borrowing history" do
       let!(:former) { create(:borrowing, :returned, book:, borrowed_at: 2.months.ago) }
       let!(:current) { Borrowing.borrow!(book:, reader: create(:reader)).reload }
@@ -42,10 +42,25 @@ RSpec.describe "Books" do
 
       it { expect(response).to have_http_status(:ok) }
 
-      it "returns the book with its full history, newest first, including deleted readers" do
+      it "returns the book with its history, newest first, including deleted readers" do
         expect(json).to eq(
-          book_json(book, status: "borrowed", current_borrowing: current, borrowings: [ current, former.reload ])
+          book_json(book, status: "borrowed", recent_borrowings: [ current, former.reload ])
         )
+      end
+    end
+
+    context "with more than 3 borrowings" do
+      let!(:recent) do
+        [ 1.week, 2.weeks, 3.weeks ].map { |age| create(:borrowing, :returned, book:, borrowed_at: age.ago) }
+      end
+
+      before do
+        create(:borrowing, :returned, book:, borrowed_at: 1.month.ago)
+        get book_path(book)
+      end
+
+      it "returns the 3 newest borrowings and the total count" do
+        expect(json).to eq(book_json(book, status: "available", recent_borrowings: recent, borrowings_count: 4))
       end
     end
 
@@ -53,7 +68,7 @@ RSpec.describe "Books" do
       before { get book_path(book) }
 
       it "returns an empty history" do
-        expect(json).to eq(book_json(book, status: "available", borrowings: []))
+        expect(json).to eq(book_json(book, status: "available", recent_borrowings: []))
       end
     end
 
@@ -62,6 +77,16 @@ RSpec.describe "Books" do
         book.discard!
         get book_path(book)
       end
+
+      it { expect(response).to have_http_status(:ok) }
+
+      it "returns the book marked as archived" do
+        expect(json).to eq(book_json(book, status: "available", recent_borrowings: []))
+      end
+    end
+
+    context "with an unknown serial number" do
+      before { get book_path(serial_number: "999999") }
 
       it_behaves_like "an error response", :not_found, "Book not found"
     end
@@ -90,6 +115,16 @@ RSpec.describe "Books" do
                       { "serial_number" => [ "has already been taken" ] }
     end
 
+    context "with a serial number used by a deleted book" do
+      before do
+        create(:book, serial_number: "012345").discard!
+        post books_path, params: { book: book_params }, as: :json
+      end
+
+      it_behaves_like "an error response", :unprocessable_content, "Serial number has already been taken",
+                      { "serial_number" => [ "has already been taken" ] }
+    end
+
     context "without book attributes" do
       before { post books_path, params: {}, as: :json }
 
@@ -97,7 +132,7 @@ RSpec.describe "Books" do
     end
   end
 
-  describe "DELETE /books/:id" do
+  describe "DELETE /books/:serial_number" do
     context "when the book is available" do
       before { delete book_path(book) }
 

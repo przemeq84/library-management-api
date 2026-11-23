@@ -39,9 +39,7 @@ RSpec.describe Reader do
 
       before { create(:reader, card_number: "111111").discard }
 
-      it "allows the card number to be reused" do
-        expect(reader.save).to be(true)
-      end
+      it { expect(errors[:card_number]).to include("has already been taken") }
     end
 
     context "without email" do
@@ -93,6 +91,12 @@ RSpec.describe Reader do
     end
   end
 
+  describe "#to_param" do
+    subject { build(:reader, card_number: "012345").to_param }
+
+    it { is_expected.to eq("012345") }
+  end
+
   describe "#email" do
     it "normalizes blank to nil" do
       expect(build(:reader, email: "  ").email).to be_nil
@@ -106,10 +110,20 @@ RSpec.describe Reader do
   describe "database constraints" do
     let(:reader) { create(:reader) }
 
-    before { create(:reader, email: "foo@bar.com") }
+    context "when a kept reader has the same email" do
+      before { create(:reader, email: "foo@bar.com") }
 
-    it "rejects a duplicate kept email written past validations" do
-      expect { reader.update_column(:email, "foo@bar.com") }.to raise_error(ActiveRecord::RecordNotUnique)
+      it "rejects it when written past validations" do
+        expect { reader.update_column(:email, "foo@bar.com") }.to raise_error(ActiveRecord::RecordNotUnique)
+      end
+    end
+
+    context "when a discarded reader has the same card number" do
+      before { create(:reader, card_number: "111111").discard }
+
+      it "rejects it when written past validations" do
+        expect { reader.update_column(:card_number, "111111") }.to raise_error(ActiveRecord::RecordNotUnique)
+      end
     end
   end
 
@@ -140,7 +154,7 @@ RSpec.describe Reader do
     context "when all books have been returned" do
       before do
         Borrowing.borrow!(book:, reader:)
-        Borrowing.return!(book:, reader:)
+        Borrowing.return!(book:)
       end
 
       it "discards the reader" do

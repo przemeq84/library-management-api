@@ -41,10 +41,14 @@ RSpec.describe Book do
 
       before { create(:book, serial_number: "222222").discard }
 
-      it "allows the serial number to be reused" do
-        expect(book.save).to be(true)
-      end
+      it { expect(errors[:serial_number]).to include("has already been taken") }
     end
+  end
+
+  describe "#to_param" do
+    subject { build(:book, serial_number: "012345").to_param }
+
+    it { is_expected.to eq("012345") }
   end
 
   describe "#serial_number" do
@@ -58,10 +62,20 @@ RSpec.describe Book do
   describe "database constraints" do
     let(:book) { create(:book) }
 
-    before { create(:book, serial_number: "222222") }
+    context "when a kept book has the same serial number" do
+      before { create(:book, serial_number: "222222") }
 
-    it "rejects a duplicate kept serial number written past validations" do
-      expect { book.update_column(:serial_number, "222222") }.to raise_error(ActiveRecord::RecordNotUnique)
+      it "rejects it when written past validations" do
+        expect { book.update_column(:serial_number, "222222") }.to raise_error(ActiveRecord::RecordNotUnique)
+      end
+    end
+
+    context "when a discarded book has the same serial number" do
+      before { create(:book, serial_number: "222222").discard }
+
+      it "rejects it when written past validations" do
+        expect { book.update_column(:serial_number, "222222") }.to raise_error(ActiveRecord::RecordNotUnique)
+      end
     end
   end
 
@@ -76,18 +90,26 @@ RSpec.describe Book do
   end
 
   describe "#status" do
-    subject { book.status }
+    subject { book.reload.status }
 
     let(:book) { create(:book) }
+    let(:reader) { create(:reader) }
+
+    context "when the book was never borrowed" do
+      it { is_expected.to eq("available") }
+    end
 
     context "when the book was only borrowed in the past" do
-      before { create(:borrowing, :returned, book:) }
+      before do
+        Borrowing.borrow!(book:, reader:)
+        Borrowing.return!(book:)
+      end
 
       it { is_expected.to eq("available") }
     end
 
     context "when the book is borrowed" do
-      before { create(:borrowing, book:) }
+      before { Borrowing.borrow!(book:, reader:) }
 
       it { is_expected.to eq("borrowed") }
     end
@@ -111,16 +133,19 @@ RSpec.describe Book do
     end
   end
 
-  describe "#borrowings_chronological" do
+  describe "#recent_borrowings_chronological" do
     let(:book) { create(:book) }
     let!(:older) { create(:borrowing, :returned, book:, borrowed_at: 2.months.ago) }
     let!(:current) { create(:borrowing, book:, borrowed_at: 1.day.ago) }
-    let!(:oldest) { create(:borrowing, :returned, book:, borrowed_at: 3.months.ago) }
+    let!(:old) { create(:borrowing, :returned, book:, borrowed_at: 3.months.ago) }
 
-    before { create(:borrowing, :returned, borrowed_at: 1.week.ago) }
+    before do
+      create(:borrowing, :returned, book:, borrowed_at: 4.months.ago)
+      create(:borrowing, :returned, borrowed_at: 1.week.ago)
+    end
 
-    it "lists the book's borrowings, newest first" do
-      expect(book.borrowings_chronological).to eq([ current, older, oldest ])
+    it "lists the book's 3 newest borrowings, newest first" do
+      expect(book.recent_borrowings_chronological).to eq([ current, older, old ])
     end
   end
 
@@ -141,7 +166,7 @@ RSpec.describe Book do
     context "when the book has been returned" do
       before do
         Borrowing.borrow!(book:, reader:)
-        Borrowing.return!(book:, reader:)
+        Borrowing.return!(book:)
       end
 
       it "discards the book" do

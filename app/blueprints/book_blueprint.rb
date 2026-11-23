@@ -1,11 +1,13 @@
 class BookBlueprint < Blueprinter::Base
-  identifier :id
+  identifier :serial_number
 
-  fields :serial_number, :title, :author, :status
+  fields :title, :author, :status
 
-  association :current_borrowing, blueprint: BorrowingBlueprint
+  field :discarded?, name: :archived
 
   view :detailed do
-    association :borrowings_chronological, name: :borrowings, blueprint: BorrowingBlueprint
+    association :recent_borrowings_chronological, name: :recent_borrowings, blueprint: BorrowingBlueprint
+
+    field(:borrowings_count) { |_book, options| options[:borrowings_count] }
   end
 end
